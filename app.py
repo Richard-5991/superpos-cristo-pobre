@@ -58,7 +58,7 @@ def cargar_datos_base():
                 rol_id=1 # Asignado a administrador
             )
             db.session.add(admin_user)
-            print("✅ Usuario administrador 'Richard' creado")
+            print("✅ Usuario administrador 'admin' creado")
 
         # 3. Crear Categorías iniciales
         if not Categoria.query.first():
