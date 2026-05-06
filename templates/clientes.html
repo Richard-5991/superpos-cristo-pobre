@@ -1,0 +1,161 @@
+{% extends "base.html" %} 
+{% block content %}
+<style>
+  /* Optimizaciones generales */
+  .bg-main { background-color: #f8f9fa; min-height: 90vh; }
+  .card-custom { border-radius: 15px; border: none; }
+  .fila-usuario:hover { background-color: #fbfcfe !important; box-shadow: inset 4px 0 0 #0d6efd; }
+  .transition-all { transition: all 0.2s ease-in-out; }
+  
+  /* Botones de acción limpios */
+  .btn-action { background: #fff; border: 1px solid #eee; transition: 0.2s; }
+  .btn-action:hover { background: #f8f9fa; }
+
+  /* Tabla responsiva con scroll táctil */
+  .tabla-responsive-custom {
+    max-height: 65vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  @media (max-width: 768px) {
+    .fs-mobile-title { font-size: 1.25rem !important; }
+    .btn-mobile-full { width: 100%; margin-top: 10px; }
+    .tabla-responsive-custom { max-height: 60vh; }
+  }
+</style>
+
+<div class="container-fluid py-3 py-md-4 px-3 px-md-4 bg-main">
+  <!-- CABECERA: Título y Buscador -->
+  <div class="card card-custom shadow-sm mb-3">
+    <div class="card-body p-3 p-md-4">
+      <div class="row align-items-center g-3">
+        <div class="col-12 col-md-5">
+          <h2 class="fw-bold text-dark mb-1 fs-mobile-title">
+            <i class="fas fa-address-book text-primary me-2"></i>Clientes
+          </h2>
+          <p class="text-muted small mb-0 d-none d-sm-block">Gestión de base de datos de clientes registrados.</p>
+        </div>
+        <div class="col-12 col-md-4">
+          <div class="input-group shadow-sm rounded-3 overflow-hidden">
+            <span class="input-group-text bg-white border-0 text-muted ps-3">
+              <i class="fas fa-search"></i>
+            </span>
+            <input type="text" id="busquedaPersonal" class="form-control border-0 ps-2 py-2" placeholder="Nombre o cédula..." onkeyup="filtrarPersonal()" />
+          </div>
+        </div>
+        <div class="col-12 col-md-3">
+          <button class="btn btn-primary btn-mobile-full py-2 fw-bold shadow-sm w-100" onclick="abrirModalNuevo()">
+            <i class="fas fa-plus-circle me-1"></i> NUEVO CLIENTE
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LISTADO DE CLIENTES -->
+  <div class="card card-custom shadow-sm overflow-hidden">
+    <div class="table-responsive tabla-responsive-custom">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="bg-light sticky-top">
+          <tr class="text-muted small text-uppercase fw-bold" style="font-size: 0.75rem">
+            <th class="ps-4 py-3">Identificación</th>
+            <th class="py-3">Nombre</th>
+            <th class="py-3 d-none d-md-table-cell">Contacto</th>
+            <th class="text-end pe-4 py-3">Acciones</th>
+          </tr>
+        </thead>
+        <tbody class="border-top-0">
+          {% for c in clientes %}
+          <tr class="fila-usuario border-bottom transition-all">
+            <td class="ps-4 py-3">
+              <span class="fw-bold text-dark d-block">{{ c.cedula }}</span>
+              <!-- Solo visible en móvil para ahorrar espacio -->
+              <div class="d-md-none small text-muted">
+                <i class="fas fa-phone-alt me-1"></i>{{ c.telefono or 'S/N' }}
+              </div>
+            </td>
+            <td>
+              <div class="fw-bold text-secondary text-uppercase" style="font-size: 0.9rem">{{ c.nombre }}</div>
+              <div class="d-md-none small text-muted text-truncate" style="max-width: 150px;">{{ c.correo or '' }}</div>
+            </td>
+            <td class="d-none d-md-table-cell">
+              <div class="d-flex flex-column small">
+                <span><i class="fas fa-phone-alt me-1 text-primary opacity-50"></i> {{ c.telefono or '---' }}</span>
+                <span class="text-muted"><i class="fas fa-envelope me-1 opacity-50"></i> {{ c.correo or '---' }}</span>
+              </div>
+            </td>
+            <td class="text-end pe-4">
+              <div class="btn-group shadow-sm rounded-2 overflow-hidden border">
+                <button class="btn btn-white btn-sm px-3 text-warning" onclick="prepararEdicionCliente('{{ c.cedula }}', '{{ c.nombre }}', '{{ c.telefono }}', '{{ c.correo }}', '{{ c.direccion }}')">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-white btn-sm px-3 text-danger" onclick="eliminarCliente('{{ c.cedula }}', '{{ c.nombre }}')">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FORMULARIO CLIENTE -->
+<div class="modal fade" id="modalCliente" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+    <form id="formCliente" action="{{ url_for('main.gestionar_cliente') }}" method="POST" class="modal-content border-0 shadow-lg rounded-4">
+      <input type="hidden" name="edit_mode" id="edit_mode_cli" value="false" />
+      <input type="hidden" name="cedula_original" id="cli_cedula_hidden" />
+
+      <div class="modal-header border-0 pt-4 px-4">
+        <h5 class="fw-bold text-dark" id="tituloModalCliente">
+          <i class="fas fa-user-edit text-primary me-2"></i>Datos del Cliente
+        </h5>
+        <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body px-4">
+        <!-- Sección Identidad -->
+        <div class="p-3 bg-light rounded-4 mb-3 border border-1 shadow-sm">
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label small fw-bold text-muted mb-1">Cédula / RUC <span class="text-danger">*</span></label>
+              <input type="text" name="cedula" id="cli_cedula" class="form-control fw-bold border-0 shadow-sm" placeholder="1700000000" required />
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-bold text-muted mb-1">Nombre Completo <span class="text-danger">*</span></label>
+              <input type="text" name="nombre" id="cli_nombre" class="form-control border-0 shadow-sm" placeholder="EJ: JUAN PEREZ" style="text-transform: uppercase" required />
+            </div>
+          </div>
+        </div>
+
+        <!-- Sección Contacto -->
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label small fw-bold text-muted mb-1">Teléfono</label>
+            <input type="tel" name="telefono" id="cli_telefono" class="form-control shadow-sm border-0 bg-light" placeholder="09..." maxlength="10" oninput="this.value = this.value.replace(/[^0-9]/g, '')" />
+          </div>
+          <div class="col-6">
+            <label class="form-label small fw-bold text-muted mb-1">Correo</label>
+            <input type="email" name="correo" id="cli_correo" class="form-control shadow-sm border-0 bg-light" placeholder="mail@com" />
+          </div>
+          <div class="col-12">
+            <label class="form-label small fw-bold text-muted mb-1">Dirección</label>
+            <textarea name="direccion" id="cli_direccion" class="form-control shadow-sm border-0 bg-light" rows="2" placeholder="UBICACIÓN DEL CLIENTE" style="text-transform: uppercase"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer border-0 px-4 pb-4">
+        <button type="button" class="btn btn-light px-4 text-muted fw-bold" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary px-5 fw-bold shadow">
+          <i class="fas fa-save me-2"></i>GUARDAR
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,206 @@
+{% extends "base.html" %} 
+{% block content %}
+<div class="container-fluid py-3 py-md-4 px-2 px-md-4" style="background-color: #f8f9fa; min-height: 90vh">
+  
+  <!-- Encabezado de Sección -->
+  <div class="card border-0 shadow-sm mb-4" style="border-radius: 15px">
+    <div class="card-body p-3 p-md-4">
+      <div class="row align-items-center g-3">
+        <div class="col-12 col-md-5 text-center text-md-start">
+          <h3 class="fw-bold m-0 text-dark">Gestión de Personal</h3>
+          <p class="text-muted small mb-0">Administre los accesos y roles de sus empleados</p>
+        </div>
+        
+        <div class="col-12 col-md-4">
+          <div class="input-group">
+            <span class="input-group-text bg-white border-end-0 text-muted">
+              <i class="fas fa-search"></i>
+            </span>
+            <input
+              type="text"
+              id="busquedaPersonal"
+              class="form-control border-start-0"
+              placeholder="Buscar..."
+              onkeyup="filtrarPersonal()"
+            />
+          </div>
+        </div>
+        
+        <div class="col-12 col-md-3 text-center text-md-end">
+          <button
+            type="button"
+            class="btn btn-primary shadow-sm rounded-3 px-4 py-2 w-100 w-md-auto"
+            onclick="abrirModalUsuario()"
+          >
+            <i class="fas fa-user-plus me-2"></i> Nuevo Personal
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla de Usuarios -->
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="table-responsive" style="max-height: 550px; overflow-y: auto">
+      <table class="table table-hover align-middle mb-0" id="tablaUsuarios" style="min-width: 600px;">
+        <thead class="bg-light sticky-top" style="z-index: 10; top: 0">
+          <tr>
+            <th class="ps-4 py-3">Cédula</th>
+            <th>Nombre Completo</th>
+            <th>Usuario</th>
+            <th>Rol</th>
+            <th class="text-center">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in usuarios %}
+          <tr class="fila-usuario">
+            <td class="ps-4 fw-bold text-muted">{{ u.cedula }}</td>
+            <td class="nombre-completo">{{ u.nombre_completo }}</td>
+            <td>
+              <span class="badge bg-info bg-opacity-10 text-info px-3">
+                {{ u.username }}
+              </span>
+            </td>
+            <td>
+              {% if u.rol.nombre|lower == 'administrador' %}
+              <span class="badge bg-danger">Administrador</span>
+              {% else %}
+              <span class="badge bg-secondary">Empleado</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              <div class="d-flex justify-content-center">
+                <button
+                  class="btn btn-sm btn-outline-primary border-0 me-1"
+                  onclick="prepararEdicionUs('{{ u.cedula }}', '{{ u.nombre_completo }}', '{{ u.username }}', '{{ u.rol_id }}')"
+                  title="Editar Usuario"
+                >
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button
+                  class="btn btn-sm btn-outline-danger border-0"
+                  onclick="eliminarUsuario('{{ u.cedula }}', '{{ u.nombre_completo }}')"
+                  title="Eliminar Usuario"
+                >
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer bg-white border-0 py-3">
+      <small class="text-muted d-block text-center text-md-start">
+        Mostrando: <strong id="totalPersonal">{{ usuarios|length }}</strong> personas
+      </small>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Registro/Edición -->
+<div class="modal fade" id="modalUsuario" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+    <div class="modal-content border-0 shadow-lg rounded-4-md">
+      <div
+        class="modal-header text-white border-0 py-3 py-md-4"
+        style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%)"
+      >
+        <div class="d-flex align-items-center gap-3 ps-2">
+          <div class="d-none d-sm-flex"
+            style="width: 35px; height: 35px; background: rgba(255, 255, 255, 0.1); border-radius: 8px; align-items: center; justify-content: center;">
+            <i class="fas fa-user-gear text-info"></i>
+          </div>
+          <h5 class="modal-title fw-bold mb-0" id="modalTitulo">Registrar Personal</h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-3 p-md-4">
+        <form id="formUsuario">
+          <input type="hidden" id="edit_mode" value="false" />
+
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-muted text-uppercase">Número de Cédula</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light border-end-0 text-muted"><i class="fas fa-fingerprint"></i></span>
+              <input
+                type="text"
+                id="reg_cedula"
+                class="form-control bg-light border-start-0"
+                placeholder="0123456789"
+                maxlength="10"
+                oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-muted text-uppercase">Nombre Completo</label>
+            <input
+              type="text"
+              id="reg_nombre"
+              class="form-control rounded-3"
+              style="text-transform: uppercase"
+              placeholder="Ej: Juan Pérez"
+              required
+            />
+          </div>
+
+          <div class="row">
+            <div class="col-12 col-md-6 mb-3">
+              <label class="form-label small fw-bold text-muted text-uppercase">Usuario (Login)</label>
+              <input type="text" id="reg_user" class="form-control rounded-3" placeholder="jperez" required />
+            </div>
+            <div class="col-12 col-md-6 mb-3">
+              <label class="form-label small fw-bold text-muted text-uppercase">Contraseña</label>
+              <input type="password" id="reg_pass" class="form-control rounded-3" placeholder="********" />
+              <div id="passHelp" class="form-text small d-none text-primary">Deje en blanco para no cambiar.</div>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label small fw-bold text-muted text-uppercase">Rol en el Sistema</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light border-end-0 text-muted"><i class="fas fa-user-shield"></i></span>
+              <select id="reg_rol" class="form-select rounded-3 bg-light border-start-0" required>
+                <option value="">Seleccione un rol...</option>
+                {% for r in roles %}
+                <option value="{{ r.id }}">{{ r.nombre | capitalize }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onclick="guardarUsuario()"
+            class="btn btn-primary w-100 py-3 fw-bold rounded-3 shadow-sm border-0"
+            style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);"
+          >
+            <i class="fas fa-save me-2"></i>
+            <span id="btnTexto">Guardar Usuario</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Ajustes extra para móviles */
+  @media (max-width: 576px) {
+    .container-fluid { padding-top: 1rem !important; }
+    h3 { font-size: 1.4rem; }
+    .modal-header { padding: 1rem !important; }
+    .btn-primary { padding: 12px !important; }
+  }
+  
+  /* Evitar que el modal se pegue a los bordes en tablets */
+  @media (min-width: 576px) {
+    .rounded-4-md { border-radius: 1.2rem !important; }
+  }
+</style>
+{% endblock %}

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid py-4" style="background-color: #f8f9fa; min-height: 100vh;">
+    <div class="row justify-content-center">
+        <div class="col-lg-11 col-xl-10">
+            <!-- Encabezado -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap">
+                        <div>
+                            <h4 class="fw-bold mb-1 text-danger">
+                                <i class="fas fa-file-invoice text-danger me-2"></i>Anulación de Facturas
+                            </h4>
+                            <p class="text-muted small mb-0">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Solo se muestran facturas de <strong>hoy</strong> con caja <strong>abierta</strong>.
+                            </p>
+                        </div>
+                        <div class="mt-3 mt-md-0">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                                <input type="text" id="busquedaFactura" class="form-control border-start-0" placeholder="Buscar folio o cliente..." onkeyup="buscarEnTabla()">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla -->
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="tablaAnular">
+                        <thead class="bg-light">
+                            <tr class="text-muted small text-uppercase">
+                                <th class="ps-4">Folio</th>
+                                <th>Hora</th>
+                                <th>Vendedor</th>
+                                <th>Cliente</th>
+                                <th>Total</th>
+                                <th class="text-end pe-4">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in facturas %}
+                            <tr class="fila-factura">
+                                <td class="ps-4">
+                                    <span class="badge bg-danger-subtle text-danger fw-bold">#{{ f.numero_factura }}</span>
+                                </td>
+                                <td class="small text-muted">{{ f.fecha.strftime('%H:%M %p') }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-xs me-2 bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 30px; height: 30px; font-size: 0.8rem;">
+                                            <i class="fas fa-user"></i>
+                                        </div>
+                                        <!-- Usamos la relación 'vendedor' para obtener el nombre -->
+                                        <span class="small fw-semibold">{{ f.vendedor.nombre_completo if f.vendedor else f.fv_usuario_id }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold text-dark">{{ f.cliente.nombre if f.cliente else 'CONSUMIDOR FINAL' }}</div>
+                                    <small class="text-muted">{{ f.cliente.cedula if f.cliente else '9999999999' }}</small>
+                                </td>
+                                <td>
+                                    <span class="fw-bold text-dark">$ {{ "%.2f"|format(f.total) }}</span>
+                                </td>
+                                <td class="text-end pe-4">
+                                    <button class="btn btn-danger btn-sm rounded-pill px-3 shadow-sm" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#modalAnular{{ f.id }}">
+                                        <i class="fas fa-times-circle me-1"></i> Anular
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <i class="fas fa-history fa-3x text-muted opacity-25 mb-3"></i>
+                                    <p class="text-muted">No hay facturas disponibles para anular hoy.</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modales -->
+{% for f in facturas %}
+<div class="modal fade" id="modalAnular{{ f.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <form action="{{ url_for('main.anular_facturacion') }}" method="POST">
+                <div class="modal-header border-0 bg-danger text-white p-4">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Confirmar Anulación</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <input type="hidden" name="factura_id" value="{{ f.id }}">
+                    
+                    <div class="alert alert-warning border-0 bg-warning-subtle text-warning-emphasis small mb-4">
+                        <strong>Atención:</strong> Al anular la factura <b>#{{ f.numero_factura }}</b>, el stock se devolverá y la venta dejará de sumar en caja.
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-secondary small">RESUMEN:</label>
+                        <div class="p-3 bg-light rounded-3 border">
+                            <div class="d-flex justify-content-between mb-1 small">
+                                <span>Cliente:</span> <span class="fw-bold text-dark">{{ f.cliente.nombre if f.cliente else 'C. FINAL' }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between small">
+                                <span>Total:</span> <span class="fw-bold text-danger">$ {{ "%.2f"|format(f.total) }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label fw-bold small">MOTIVO DE ANULACIÓN:</label>
+                        <textarea name="motivo" class="form-control" rows="3" 
+                                  placeholder="Explique el motivo (Ej: Error de cobro)..." 
+                                  required oninput="this.value = this.value.toUpperCase()"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-danger rounded-pill px-4 fw-bold shadow">
+                        EFECTUAR ANULACIÓN
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+<style>
+    .bg-danger-subtle { background-color: #fceaea !important; }
+    .bg-primary-subtle { background-color: #e7f1ff !important; }
+    .rounded-4 { border-radius: 1rem !important; }
+</style>
+{% endblock %}

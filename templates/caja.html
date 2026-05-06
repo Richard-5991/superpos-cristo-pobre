@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Optimizaciones de Caja */
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #fff;
+        padding: 20px;
+        border-radius: 16px;
+        box-shadow: 0 10px 25px rgba(0,0,0,.05);
+    }
+
+    .user-chip {
+        background: #eff6ff;
+        color: #2563eb;
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+
+    .main-card {
+        border: none;
+        border-radius: 18px;
+        box-shadow: 0 15px 40px rgba(0,0,0,.08);
+        overflow: hidden;
+    }
+
+    .left-panel { background: #f8fafc; padding: 25px; }
+    .right-panel { background: #fff; padding: 25px; }
+
+    .summary-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #fff;
+        padding: 12px;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        font-size: .9rem;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    }
+
+    .total-box {
+        margin-top: 20px;
+        padding: 20px;
+        background: linear-gradient(135deg,#3b82f6,#2563eb);
+        color: #fff;
+        border-radius: 14px;
+        text-align: center;
+    }
+
+    .input-modern {
+        background: #f1f5f9;
+        border: 2px solid transparent;
+        border-radius: 10px;
+        padding: 12px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .input-modern:focus {
+        background: #fff;
+        border-color: #3b82f6;
+        box-shadow: none;
+    }
+
+    .result-box {
+        background: #0f172a;
+        color: #fff;
+        text-align: center;
+        padding: 20px;
+        border-radius: 14px;
+        margin-top: 15px;
+    }
+
+    /* Ajustes para Celular */
+    @media (max-width: 768px) {
+        .dashboard-header {
+            flex-direction: column;
+            text-align: center;
+            gap: 15px;
+        }
+        .left-panel, .right-panel {
+            padding: 20px;
+        }
+        .total-box h1 {
+            font-size: 1.8rem;
+        }
+    }
+</style>
+
+<div class="container-fluid py-3 py-md-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10 col-xl-9">
+
+            <!-- HEADER -->
+            <div class="dashboard-header mb-4">
+                <div>
+                    <h2 class="h4 mb-1">
+                        <i class="fas fa-cash-register text-primary me-2"></i>
+                        Control de Caja
+                    </h2>
+                    <p class="small text-muted">Gestión de flujo de efectivo y cierre diario</p>
+                </div>
+
+                {% if caja_abierta %}
+                <div class="user-chip">
+                    <i class="fas fa-user-circle me-1"></i>
+                    {{ caja_abierta.usuario_apertura.nombre_completo.split(' ')[0] }}
+                </div>
+                {% endif %}
+            </div>
+
+            {% if caja_abierta %}
+            <div class="card main-card">
+                <div class="row g-0">
+                    <!-- IZQUIERDA: RESUMEN -->
+                    <div class="col-md-5 left-panel border-end">
+                        <h6 class="section-title small fw-bold text-muted text-uppercase mb-3">Resumen del Sistema</h6>
+
+                        <input type="hidden" id="monto_sistema_ef" value="{{ total_efectivo_sistema }}" />
+                        <input type="hidden" id="monto_sistema_tr" value="{{ total_transferencia_sistema }}" />
+                        <input type="hidden" id="monto_sistema" value="{{ total_esperado }}" />
+
+                        <div class="summary-item">
+                            <span><i class="fas fa-vault me-2 text-muted"></i> Fondo Inicial</span>
+                            <strong class="text-dark">$ {{ "%.2f"|format(caja_abierta.monto_inicial|float) }}</strong>
+                        </div>
+
+                        <div class="summary-item">
+                            <span><i class="fas fa-hand-holding-dollar me-2 text-success"></i> Ventas Efectivo</span>
+                            <strong class="text-dark">$ {{ "%.2f"|format(ventas_efectivo) }}</strong>
+                        </div>
+
+                        <div class="summary-item">
+                            <span><i class="fas fa-exchange-alt me-2 text-info"></i> Transferencias</span>
+                            <strong class="text-dark">$ {{ "%.2f"|format(total_transferencia_sistema) }}</strong>
+                        </div>
+
+                        <div class="total-box shadow-sm">
+                            <small class="text-white-50 text-uppercase">Total Esperado</small>
+                            <h1 class="mb-0 fw-black">$ {{ "%.2f"|format(total_esperado) }}</h1>
+                        </div>
+                    </div>
+
+                    <!-- DERECHA: CONTEO -->
+                    <div class="col-md-7 right-panel">
+                        {% if caja_abierta.usuario_apertura_id|string == session.user_cedula|string %}
+                        
+                        <h6 class="section-title small fw-bold text-muted text-uppercase mb-3">Conteo Físico</h6>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-6">
+                                <label class="small fw-bold mb-1">Efectivo Real</label>
+                                <input type="text" inputmode="decimal" id="fisico_efectivo" class="form-control input-modern" value="0.00" oninput="validarNoNegativo(this); calcularDiferencia();">
+                            </div>
+
+                            <div class="col-6">
+                                <label class="small fw-bold mb-1">Transferencia Real</label>
+                                <input type="text" inputmode="decimal" id="fisico_transferencia" class="form-control input-modern" value="0.00" oninput="validarNoNegativo(this); calcularDiferencia();">
+                            </div>
+                        </div>
+
+                        <div id="seccion-nota-obligatoria" class="alert-box mb-3 d-none" style="background:#fee2e2; padding:15px; border-radius:12px;">
+                            <label class="small fw-bold text-danger mb-1">Justificación de Descuadre</label>
+                            <textarea id="observacion_caja" class="form-control border-0" rows="2" placeholder="Explique la diferencia..."></textarea>
+                        </div>
+
+                        <div class="result-box shadow-sm">
+                            <small class="text-white-50 text-uppercase">Diferencia Total</small>
+                            <h2 id="label-diferencia" class="mb-0 fw-bold">$ 0.00</h2>
+                        </div>
+
+                        {% else %}
+                        <div class="blocked-view py-5">
+                            <i class="fas fa-shield-alt fa-3x mb-3 text-warning"></i>
+                            <h4 class="h5">Vista Restringida</h4>
+                            <p class="small">Solo el usuario que abrió la caja puede realizar el cierre.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if caja_abierta.usuario_apertura_id|string == session.user_cedula|string %}
+                <div class="card-footer bg-white border-0 text-center pb-4">
+                    <button class="btn btn-danger btn-lg px-5 shadow-sm rounded-pill fw-bold w-100 w-md-auto" onclick="procesarCierreCaja()">
+                        <i class="fas fa-power-off me-2"></i> Cerrar Caja
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+
+            {% else %}
+            <!-- ESTADO VACÍO (CAJA CERRADA) -->
+            <div class="empty-state text-center py-5 bg-white shadow-sm rounded-4">
+                <i class="fas fa-door-closed fa-4x mb-3 text-muted" style="opacity: 0.2;"></i>
+                <h2 class="h4">La caja se encuentra cerrada</h2>
+                <p class="text-muted mb-4">Debe aperturar la caja para registrar ventas hoy.</p>
+                <button class="btn btn-primary btn-lg px-5 rounded-pill shadow" data-bs-toggle="modal" data-bs-target="#modalApertura">
+                    Aperturar Caja Ahora
+                </button>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+
+<!-- MODAL APERTURA -->
+<div class="modal fade" id="modalApertura" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-body text-center p-5">
+                <div class="mb-3">
+                    <i class="fas fa-money-bill-wave text-success fa-3x"></i>
+                </div>
+                <h4 class="fw-bold">Fondo de Apertura</h4>
+                <p class="text-muted small mb-4">Ingrese el monto en efectivo disponible en caja.</p>
+                <input type="text" inputmode="decimal" id="monto_apertura" class="form-control input-modern text-center fs-3 fw-bold mb-4" value="50.00" oninput="validarMonto(this)">
+                
+                <div class="d-flex gap-2">
+                    <button class="btn btn-light btn-lg w-100 rounded-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-primary btn-lg w-100 rounded-3 shadow-sm" onclick="ejecutarApertura()">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

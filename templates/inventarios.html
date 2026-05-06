@@ -1,0 +1,254 @@
+{% extends "base.html" %} 
+{% block content %}
+<div class="container-fluid py-3 py-md-4" style="background-color: #f8f9fa; min-height: 100vh;">
+    
+    <!-- Encabezado y Herramientas -->
+    <div class="card border-0 shadow-sm mb-4" style="border-radius: 15px;">
+        <div class="card-body p-3 p-md-4">
+            <div class="row align-items-center g-3">
+                <div class="col-12 col-lg-5">
+                    <h2 class="fw-bold text-dark mb-1 fs-3">
+                        <i class="fas fa-boxes text-primary me-2"></i> Inventario
+                    </h2>
+                    <p class="text-muted small mb-0">Gestión de existencias y categorías en tiempo real.</p>
+                </div>
+                
+                <div class="col-12 col-md-7 col-lg-4">
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-white border-end-0 text-muted">
+                            <i class="fas fa-search"></i>
+                        </span>
+                        <input type="text" id="busquedaInventario" class="form-control border-start-0 ps-0" 
+                               placeholder="Buscar por código o nombre..." onkeyup="filtrarInventario()">
+                    </div>
+                </div>
+                
+                <div class="col-12 col-md-5 col-lg-3 text-md-end">
+                    <div class="btn-group shadow-sm w-100">
+                        <button class="btn btn-outline-success border-2 fw-bold w-50" data-bs-toggle="modal" data-bs-target="#modalImportar">
+                            <i class="fas fa-file-excel me-1"></i> Excel
+                        </button>
+                        <button class="btn btn-primary fw-bold w-100" onclick="abrirModalNuevoProducto()">
+                            <i class="fas fa-plus-circle me-1"></i> Nuevo
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor de Tabla Adaptativa -->
+    <div class="card border-0 shadow-lg" style="border-radius: 15px; overflow: hidden;">
+        <div class="card-body p-0">
+            <div class="table-responsive" style="max-height: 70vh; overflow-y: auto;">
+                <table class="table table-hover align-middle mb-0" id="tablaInventario" style="min-width: 850px;">
+                    <thead class="bg-dark text-white sticky-top" style="z-index: 10; top: -1px;">
+                        <tr>
+                            <th class="ps-4 py-3" style="width: 120px;">Código</th>
+                            <th>Producto / Detalle</th>
+                            <th>Categoría</th>
+                            <th>Precio Unit.</th>
+                            <th style="width: 180px;">Disponibilidad</th>
+                            <th class="text-center pe-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white">
+                        {% for p in productos %}
+                        <tr class="fila-producto">
+                            <td class="ps-4">
+                                <span class="badge rounded-pill bg-light text-dark border fw-bold px-3">
+                                    {{ p.codigo }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="fw-bold text-uppercase text-dark text-truncate" style="max-width: 250px;">{{ p.nombre }}</div>
+                                <div class="text-muted small text-truncate" style="font-style: italic; max-width: 250px;">{{ p.detalle or 'Sin descripción' }}</div>
+                            </td>
+                            <td>
+                                <span class="badge bg-info bg-opacity-10 text-info border border-info px-2">
+                                    {{ p.categoria.nombre if p.categoria else 'Sin Categoría' }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="fw-bold text-primary fs-5">${{ "%.2f"|format(p.precio|float) }}</span>
+                            </td>
+                            <td>
+                                {% if p.stock <= 0 %}
+                                    <span class="badge bg-danger w-100 py-2"><i class="fas fa-times-circle"></i> AGOTADO</span>
+                                {% elif p.stock <= p.umbral_minimo %}
+                                    <div class="d-flex flex-column">
+                                        <span class="text-danger fw-bold small"><i class="fas fa-exclamation-triangle"></i> {{ p.stock }} unidades</span>
+                                        <div class="progress mt-1" style="height: 6px;">
+                                            <div class="progress-bar bg-danger" style="width: 25%"></div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <div class="d-flex flex-column">
+                                        <span class="text-success fw-bold small"><i class="fas fa-check-circle"></i> {{ p.stock }} en stock</span>
+                                        <div class="progress mt-1" style="height: 6px;">
+                                            <div class="progress-bar bg-success" style="width: 100%"></div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td class="text-center pe-4">
+                                <div class="btn-group shadow-sm">
+                                    <button class="btn btn-light btn-sm border" title="Editar"
+                                            onclick="prepararEdicionPr('{{ p.id }}', '{{ p.codigo }}', '{{ p.nombre }}', '{{ p.detalle }}', '{{ p.precio }}', '{{ p.stock }}', '{{ p.categoria_id or '' }}', '{{ p.umbral_minimo }}')">
+                                        <i class="fas fa-pen text-warning"></i>
+                                    </button>
+                                    <button class="btn btn-light btn-sm border" title="Eliminar"
+                                            onclick="eliminarProducto('{{ p.codigo }}', '{{ p.nombre }}')">
+                                        <i class="fas fa-trash text-danger"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white border-0 py-3 text-center text-md-start">
+            <small class="text-muted">Total de productos: <strong id="totalMostrados" class="text-dark">{{ productos|length }}</strong></small>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Producto Optimizado -->
+<div class="modal fade" id="modalProducto" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-fullscreen-sm-down">
+        <form id="formProducto" class="modal-content border-0 shadow-lg rounded-4">
+            <input type="hidden" id="edit_mode_prod" value="false">
+            <input type="hidden" id="prod_id_hidden">
+            
+            <div class="modal-header bg-primary text-white border-0 py-3">
+                <h5 class="modal-title fw-bold" id="tituloModal"><i class="fas fa-box-open me-2"></i> Gestión de Producto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <div class="modal-body p-3 p-md-4">
+                <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label fw-bold small text-muted">CÓDIGO</label>
+                        <input type="text" id="prod_codigo" class="form-control form-control-lg bg-light border-0 shadow-sm" placeholder="Ej: QUES001" required>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label fw-bold small text-muted">CATEGORÍA</label>
+                        <select id="prod_categoria" class="form-select form-select-lg bg-light border-0 shadow-sm" required>
+                            <option value="">-- Seleccionar --</option>
+                            {% for cat in categorias %}
+                            <option value="{{ cat.id }}">{{ cat.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold small text-muted">NOMBRE COMERCIAL</label>
+                        <input type="text" id="prod_nombre" class="form-control form-control-lg bg-light border-0 shadow-sm" required style="text-transform: uppercase;">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold small text-muted">DETALLES / NOTAS</label>
+                        <textarea id="prod_detalle" class="form-control bg-light border-0 shadow-sm" rows="2"></textarea>
+                    </div>
+                    <div class="col-6 col-md-4">
+                        <label class="form-label fw-bold small text-muted">PRECIO ($)</label>
+                        <input type="text" inputmode="decimal" step="0.01" id="prod_precio" oninput="validarNoNegativo(this);" class="form-control form-control-lg bg-light border-0 shadow-sm" required>
+                    </div>
+                    <div class="col-6 col-md-4">
+                        <label class="form-label fw-bold small text-muted">STOCK</label>
+                        <input type="number" id="prod_stock" class="form-control form-control-lg bg-light border-0 shadow-sm" required>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label fw-bold small text-muted">UMBRAL MÍN.</label>
+                        <input type="number" id="prod_umbral" class="form-control form-control-lg bg-light border-0 shadow-sm" value="5">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer bg-light border-0 p-3">
+                <button type="button" class="btn btn-outline-secondary border-0 fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" onclick="guardarProducto()" class="btn btn-primary px-4 py-2 shadow-sm fw-bold">
+                    <span id="btnTextoProd">Guardar Producto</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- Modal de Importación de Excel -->
+<div class="modal fade" id="modalImportar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <!-- Cabecera con degradado verde (Excel style) -->
+            <div class="modal-header text-white border-0 py-3" 
+                 style="background: linear-gradient(135deg, #1f7244 0%, #33a35c 100%)">
+                <h5 class="modal-title fw-bold">
+                    <i class="fas fa-file-excel me-2"></i> Importar Inventario
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form action="{{ url_for('main.importar_excel') }}" method="POST" enctype="multipart/form-data">
+                <div class="modal-body p-4">
+                    <div class="text-center mb-4">
+                        <div class="display-4 text-success mb-2">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <p class="text-muted small">
+                            Seleccione un archivo <strong>.xlsx</strong> o <strong>.xls</strong>. 
+                            Asegúrese de que las columnas coincidan con el formato requerido.
+                        </p>
+                    </div>
+
+                    <div class="p-3 bg-light rounded-3 border border-dashed mb-3">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Archivo de Excel</label>
+                        <input type="file" name="archivo_excel" class="form-control bg-white border-0 shadow-sm" 
+                               accept=".xlsx, .xls" required>
+                    </div>
+
+                    <div class="alert alert-info border-0 shadow-sm mb-0">
+                        <ul class="mb-0 small">
+                            <li>Columnas: <strong>codigo, nombre, detalle, precio, stock, categoria_id</strong></li>
+                            <li>Evite usar caracteres especiales en los nombres.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light border-0 p-3">
+                    <button type="button" class="btn btn-link text-muted fw-bold text-decoration-none" data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-success px-4 shadow-sm fw-bold rounded-pill">
+                        <i class="fas fa-check me-2"></i> Procesar Archivo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<style>
+    /* Estilos para mejorar la experiencia móvil */
+    @media (max-width: 768px) {
+        .btn-group { flex-direction: row; }
+        .modal-fullscreen-sm-down { padding: 0; }
+        .modal-fullscreen-sm-down .modal-content { border-radius: 0; min-height: 100vh; }
+        .fs-3 { font-size: 1.5rem !important; }
+    }
+    
+    .table-responsive::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 4px;
+    }
+
+    .fila-producto:hover {
+        background-color: #f1f5f9 !important;
+        transition: 0.2s;
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% endblock %}

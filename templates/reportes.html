@@ -1,0 +1,411 @@
+{% extends "base.html" %} {% block content %}
+<style>
+  :root {
+    --bg-dashboard: #f4f7f9;
+    --accent-blue: #0d6efd;
+    --accent-green: #198754;
+    --accent-yellow: #ffc107;
+  }
+  .bg-main {
+    background-color: var(--bg-dashboard);
+    min-height: 100vh;
+  }
+  .icon-shape {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+  }
+  .card-stat:hover .icon-shape {
+    transform: scale(1.1);
+  }
+  .card {
+    border-radius: 16px;
+    border: none;
+  }
+
+  /* Tabla con cabecera pegajosa y scroll suave */
+  .audit-scroll {
+    max-height: 450px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  .audit-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .audit-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 10px;
+  }
+
+  /* Estilos para filas anuladas */
+  .tr-anulada {
+    background-color: #f8f9fa !important;
+    color: #adb5bd !important;
+  }
+  .tr-anulada .text-dark,
+  .tr-anulada .text-success,
+  .tr-anulada .text-danger {
+    color: #adb5bd !important;
+  }
+
+  .badge-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
+  }
+
+  @media (max-width: 768px) {
+    .display-6 {
+      font-size: 1.8rem;
+    }
+    .audit-scroll {
+      max-height: 60vh;
+    }
+  }
+</style>
+
+<div class="container-fluid py-4 px-md-4 bg-main">
+  <!-- ENCABEZADO -->
+  <div
+    class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2"
+  >
+    <div>
+      <h2 class="fw-bold text-dark mb-1">
+        <i class="fas fa-chart-pie text-primary me-2"></i>Dashboard de Ventas
+      </h2>
+      <p class="text-muted small mb-0">
+        <i class="far fa-calendar-alt me-1"></i> Corte al:
+        <strong>{{ hoy }}</strong>
+      </p>
+    </div>
+    <div
+      class="bg-white p-3 rounded-4 shadow-sm border-start border-primary border-4"
+    >
+      <span class="text-muted small d-block fw-bold text-uppercase"
+        >Ticket Promedio</span
+      >
+      <span class="fw-bold text-dark fs-4"
+        >$ {{ "%.2f"|format(ticket_promedio) }}</span
+      >
+    </div>
+  </div>
+
+  <!-- ALERTA DE STOCK -->
+  {% if productos_bajos %}
+  <div
+    class="alert alert-white border-0 shadow-sm mb-4 d-flex align-items-center p-3 animate__animated animate__headShake position-relative"
+    style="border-left: 5px solid #dc3545 !important; border-radius: 12px"
+  >
+    <div class="bg-danger-subtle p-2 rounded-circle me-3">
+      <i class="fas fa-exclamation-triangle text-danger fa-lg"></i>
+    </div>
+
+    <div class="flex-grow-1 pe-4">
+      <!-- Añadimos pe-4 para que el texto no choque con la X -->
+      <h6 class="mb-0 fw-bold text-dark">Inventario en Crítico</h6>
+      <span class="small text-muted"
+        >Hay <strong>{{ productos_bajos|length }}</strong> productos por debajo
+        del umbral mínimo.</span
+      >
+    </div>
+
+    <div class="me-5">
+      <!-- Un pequeño margen a la derecha para no estorbar a la X -->
+      <a
+        href="{{ url_for('main.inventarios') }}"
+        class="btn btn-danger btn-sm rounded-pill px-4 fw-bold"
+        >Reabastecer</a
+      >
+    </div>
+
+    <!-- Botón de cierre posicionado absolutamente -->
+    <button
+      type="button"
+      class="btn-close position-absolute"
+      style="top: 10px; right: 10px; font-size: 0.75rem"
+      data-bs-dismiss="alert"
+      aria-label="Close"
+    ></button>
+  </div>
+  {% endif %}
+
+  <!-- KPI CARDS -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card card-stat border-0 shadow-sm h-100 overflow-hidden">
+        <div class="card-body p-4 border-start border-primary border-5">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="text-uppercase text-muted small fw-bold mb-2">
+                Ingresos Netos
+              </h6>
+              <h2 class="display-6 fw-bold text-dark mb-0">
+                $ {{ "%.2f"|format(total_hoy) }}
+              </h2>
+            </div>
+            <div
+              class="icon-shape bg-primary bg-opacity-10 text-primary rounded-4"
+            >
+              <i class="fas fa-cash-register fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card card-stat border-0 shadow-sm h-100 overflow-hidden">
+        <div class="card-body p-4 border-start border-warning border-5">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="text-uppercase text-muted small fw-bold mb-2">
+                Descuentos (Hoy)
+              </h6>
+              <h2 class="display-6 fw-bold text-dark mb-0 text-warning">
+                $ {{ "%.2f"|format(total_descuentos) }}
+              </h2>
+            </div>
+            <div
+              class="icon-shape bg-warning bg-opacity-10 text-warning rounded-4"
+            >
+              <i class="fas fa-tag fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card card-stat border-0 shadow-sm h-100 overflow-hidden">
+        <div class="card-body p-4 border-start border-success border-5">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="text-uppercase text-muted small fw-bold mb-2">
+                Transacciones
+              </h6>
+              <h2 class="display-6 fw-bold text-dark mb-0 text-success">
+                {{ ultimas_facturas|length }}
+              </h2>
+            </div>
+            <div
+              class="icon-shape bg-success bg-opacity-10 text-success rounded-4"
+            >
+              <i class="fas fa-shopping-basket fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <!-- PRODUCTOS ESTRELLA -->
+    <div class="col-lg-7">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white py-3 border-0">
+          <h5 class="mb-0 fw-bold">
+            <i class="fas fa-trophy text-warning me-2"></i>Top Productos
+          </h5>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="bg-light text-muted small">
+                <tr>
+                  <th class="ps-4">PRODUCTO</th>
+                  <th class="text-center">VENDIDOS</th>
+                  <th class="pe-4 text-end">RECAUDACIÓN</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for prod in top_productos %}
+                <tr>
+                  <td class="ps-4 py-3">
+                    <span class="fw-bold text-dark"
+                      >{{ prod.producto_nombre }}</span
+                    >
+                  </td>
+                  <td class="text-center">
+                    <span class="badge bg-dark rounded-pill px-3"
+                      >{{ prod.total_vendido }}</span
+                    >
+                  </td>
+                  <td class="pe-4 text-end">
+                    <span class="fw-bold text-success"
+                      >$ {{ "%.2f"|format(prod.ingreso_total) }}</span
+                    >
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIVIDAD SEMANAL -->
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-sm h-100 bg-dark text-white">
+        <div class="card-header bg-transparent py-3 border-0">
+          <h5 class="mb-0 fw-bold">
+            <i class="fas fa-chart-line me-2 text-info"></i>Rendimiento Semanal
+          </h5>
+        </div>
+        <div class="card-body py-2">
+          {% for v in ventas_semana %}
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <span
+                class="badge bg-info text-dark mb-1"
+                style="font-size: 0.65rem"
+                >{{ v.dia }}</span
+              >
+              <h5 class="mb-0 fw-bold">$ {{ "%.2f"|format(v.total) }}</h5>
+            </div>
+            <div class="text-end">
+              <i class="fas fa-arrow-trend-up text-info opacity-50"></i>
+            </div>
+          </div>
+          {% if not loop.last %}
+          <hr class="border-secondary my-2 opacity-25" />
+          {% endif %} {% else %}
+          <div class="text-center py-5 opacity-50">
+            <i class="fas fa-folder-open fa-3x mb-3"></i>
+            <p>No hay datos semanales</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLA DE AUDITORÍA -->
+  <div class="card border-0 shadow-sm overflow-hidden">
+    <div
+      class="card-header bg-white py-3 border-0 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2"
+    >
+      <div>
+        <h5 class="mb-0 fw-bold text-dark">
+          <i class="fas fa-receipt me-2 text-danger"></i>Auditoría de Ventas
+        </h5>
+        <small class="text-muted">Detalle de operaciones del día de hoy.</small>
+      </div>
+      <div class="input-group input-group-sm w-auto">
+        <span class="input-group-text bg-light border-0"
+          ><i class="fas fa-filter"></i
+        ></span>
+        <input
+          type="text"
+          class="form-control border-0 bg-light"
+          placeholder="Buscar folio o cliente..."
+          id="searchAudit"
+        />
+      </div>
+    </div>
+
+    <div class="audit-scroll">
+      <table class="table table-hover align-middle mb-0">
+        <thead
+          class="bg-light text-muted small text-uppercase sticky-top shadow-sm"
+          style="z-index: 5"
+        >
+          <tr>
+            <th class="ps-4 py-3">Folio</th>
+            <th>Cliente</th>
+            <th>Desc.</th>
+            <th>Neto</th>
+            <th class="pe-4">Observaciones / Motivo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in ultimas_facturas %}
+          <tr class="{% if f.anulada %}tr-anulada{% endif %}">
+            <td class="ps-4">
+              {% if f.anulada %}
+              <span class="badge bg-secondary px-2">ANULADA</span>
+              {% else %}
+              <span class="fw-bold text-primary">#{{ f.numero_factura }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <div
+                class="fw-bold {% if f.anulada %}text-decoration-line-through{% endif %}"
+              >
+                {{ f.cliente.nombre if f.cliente else 'CONSUMIDOR FINAL' }}
+              </div>
+            </td>
+            <td>
+              <span class="{% if not f.anulada %}text-danger{% endif %} fw-bold"
+                >$ {{ "%.2f"|format(f.descuento) }}</span
+              >
+            </td>
+            <td>
+              <span class="fw-bold fs-6">$ {{ "%.2f"|format(f.total) }}</span>
+            </td>
+            <td class="pe-4">
+              <div
+                class="p-2 bg-white rounded border-start border-3 {% if f.anulada %}border-secondary{% else %}border-danger{% endif %} small shadow-sm"
+              >
+                {% if f.anulada %}
+                <strong>MOTIVO:</strong> {{ f.motivo_anulacion or 'S/M' }} {%
+                elif f.motivo_descuento %}
+                <i class="fas fa-comment-dots me-1 text-muted"></i> {{
+                f.motivo_descuento }} {% else %}
+                <span class="text-muted italic">Sin observaciones</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="text-center py-5">
+              <img
+                src="https://cdn-icons-png.flaticon.com/512/4076/4076432.png"
+                width="80"
+                class="opacity-25 mb-3"
+              />
+              <p class="text-muted">
+                No se registran transacciones para este periodo.
+              </p>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer bg-light border-0 py-3">
+      <div class="d-flex justify-content-between align-items-center">
+        <small
+          class="text-muted fw-bold text-uppercase"
+          style="font-size: 0.7rem"
+        >
+          <i class="fas fa-info-circle me-1"></i> Datos procesados en tiempo
+          real
+        </small>
+        <span class="badge bg-white text-dark border px-3 rounded-pill"
+          >{{ ultimas_facturas|length }} Transacciones</span
+        >
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Filtro rápido para la tabla de auditoría
+  document.getElementById("searchAudit").addEventListener("keyup", function () {
+    let value = this.value.toLowerCase();
+    let rows = document.querySelectorAll(".audit-scroll tbody tr");
+    rows.forEach((row) => {
+      row.style.display = row.innerText.toLowerCase().includes(value)
+        ? ""
+        : "none";
+    });
+  });
+</script>
+{% endblock %}
