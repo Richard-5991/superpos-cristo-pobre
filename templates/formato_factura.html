@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
@@ -32,7 +32,7 @@
         width: 40%;
         border: 2px solid #333;
         border-radius: 8px;
-        padding: 15px;
+        padding: 60px;
         text-align: center;
       }
       .logo-container {
@@ -80,6 +80,11 @@
       .text-center {
         text-align: center;
       }
+      /* Solo para el formato_ticket.html */
+      @page {
+        size: A4;
+        margin: 10mm;
+      }
     </style>
   </head>
   <body>
@@ -88,7 +93,12 @@
         <tr>
           <td class="info-emisor">
             <div class="logo-container">
-              <img src="https://tu-dominio.com/static/img/logo_cristo_pobre.png" alt="Logo" class="logo-img" onerror="this.style.display = 'none'" />
+              <img
+                src="https://tu-dominio.com/static/img/logo_cristo_pobre.png"
+                alt="Logo"
+                class="logo-img"
+                onerror="this.style.display = 'none'"
+              />
             </div>
             <h2 style="margin: 0; color: #000">
               FÁBRICA DE QUESOS<br />"CRISTO POBRE"
@@ -96,16 +106,25 @@
             <p style="margin: 5px 0">
               <span class="bold">Representante: Carolina Lazo</span><br />
               Matriz: Panamericana Norte km 2- Biblián, Cañar<br />
-              <small class="bold">Contribuyente Negocio Popular - Régimen RIMPE</small>
+              <small class="bold"
+                >Contribuyente Negocio Popular - Régimen RIMPE</small
+              >
             </p>
           </td>
           <td>
             <div class="info-nota">
               <h3 style="margin: 0">R.U.C. 0301518965001</h3>
-              <h2 style="margin: 5px 0; background: #333; color: #fff; padding: 5px;">
+              <h2
+                style="
+                  margin: 5px 0;
+                  background: #333;
+                  color: #fff;
+                  padding: 5px;
+                "
+              >
                 NOTA DE VENTA
               </h2>
-              <p class="bold" style="font-size: 15px; margin: 5px 0">
+              <p class="bold" style="font-size: 10px; margin: 5px 0">
                 No. {{ factura.numero_factura }}
               </p>
             </div>
@@ -152,34 +171,92 @@
       </table>
 
       <div style="overflow: hidden; margin-top: 20px">
-        <div style="float: left; width: 45%; text-align: center; margin-top: 25px">
-          <div style="border-top: 1px solid #000; width: 80%; margin: auto; padding-top: 5px;">
-            <p class="bold" style="margin: 0; font-size: 10px">RECIBÍ CONFORME</p>
-            <p style="margin: 0; font-size: 8px; color: #666">{{ cliente.nombre }}</p>
-            <p style="margin: 0; font-size: 8px; color: #666">CI/RUC: {{ cliente.cedula }}</p>
+        <div
+          style="float: left; width: 45%; text-align: center; margin-top: 25px"
+        >
+          <div
+            style="
+              border-top: 1px solid #000;
+              width: 80%;
+              margin: auto;
+              padding-top: 5px;
+            "
+          >
+            <p class="bold" style="margin: 0; font-size: 10px">
+              RECIBÍ CONFORME
+            </p>
+            <p style="margin: 0; font-size: 8px; color: #666">
+              {{ cliente.nombre }}
+            </p>
+            <p style="margin: 0; font-size: 8px; color: #666">
+              CI/RUC: {{ cliente.cedula }}
+            </p>
           </div>
-          <div style="text-align: left; margin-top: 15px; font-size: 9px; color: #666;">
+          <div
+            style="
+              text-align: left;
+              margin-top: 15px;
+              font-size: 9px;
+              color: #666;
+            "
+          >
             <p style="margin: 0">Email: {{ cliente.correo or 'S/N' }}</p>
-            <p style="margin: 0">Pago: {{ 'Transferencia' if 'transferencia' in factura.metodo_pago|lower else 'Efectivo' }}</p>
+            <p style="margin: 0">
+              Pago: {{ 'Transferencia' if 'transferencia' in
+              factura.metodo_pago|lower else 'Efectivo' }}
+            </p>
           </div>
         </div>
 
         <div class="totales-container">
-          <table class="totales-table" style="border: 2px solid #333; width: 100%; border-collapse: collapse;">
+          <table
+            class="totales-table"
+            style="
+              border: 2px solid #333;
+              width: 100%;
+              border-collapse: collapse;
+            "
+          >
             <tr>
-              <td class="bold" style="padding: 5px; border-bottom: 1px solid #eee">SUBTOTAL</td>
-              <td class="text-right" style="padding: 5px; border-bottom: 1px solid #eee">
+              <td
+                class="bold"
+                style="padding: 5px; border-bottom: 1px solid #eee"
+              >
+                SUBTOTAL
+              </td>
+              <td
+                class="text-right"
+                style="padding: 5px; border-bottom: 1px solid #eee"
+              >
                 $ {{ "%.2f"|format(factura.subtotal or 0.00) }}
               </td>
             </tr>
             <tr>
-              <td class="bold" style="padding: 5px; border-bottom: 1px solid #eee; color: #d9534f;">DESCUENTO</td>
-              <td class="text-right" style="padding: 5px; border-bottom: 1px solid #eee; color: #d9534f;">
+              <td
+                class="bold"
+                style="
+                  padding: 5px;
+                  border-bottom: 1px solid #eee;
+                  color: #d9534f;
+                "
+              >
+                DESCUENTO
+              </td>
+              <td
+                class="text-right"
+                style="
+                  padding: 5px;
+                  border-bottom: 1px solid #eee;
+                  color: #d9534f;
+                "
+              >
                 - $ {{ "%.2f"|format(factura.descuento or 0.00) }}
               </td>
             </tr>
             <tr style="background: #f2f2f2">
-              <td class="bold" style="padding: 8px; font-size: 12px">TOTAL A PAGAR</td>
+              <td class="bold" style="padding: 8px; font-size: 12px">
+                TOTAL A PAGAR
+              </td>
               <td class="text-right bold" style="padding: 8px; font-size: 16px">
                 $ {{ "%.2f"|format(factura.total or 0.00) }}
               </td>

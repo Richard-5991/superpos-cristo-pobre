@@ -4,9 +4,8 @@ from datetime import date, datetime
 from functools import wraps
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, session, flash, make_response
 from sqlalchemy import func
-import pdfkit
 from decimal import Decimal, ROUND_HALF_UP
-
+from weasyprint import HTML
 
 # Importamos los modelos
 from models import db, Producto, Cliente, Factura, DetalleFactura, Caja, Usuario, Rol, Categoria
@@ -118,7 +117,7 @@ def historial():
     query = Factura.query
     
     # Filtro de seguridad: si no es admin, solo ve sus propias ventas (fv_usuario_id)
-    if session.get('rol') != 'Administrador':
+    if session.get('rol') != 'administrador':
         query = query.filter(Factura.fv_usuario_id == session.get('user_cedula'))
 
     # Filtro por fecha
@@ -388,13 +387,18 @@ def guardar_factura():
         print(f"Error al guardar factura: {str(e)}") # Para que lo veas en consola
         return jsonify({'error': str(e)}), 500
 
+import os
+import platform
+from flask import render_template, make_response, request
+from weasyprint import HTML
+
 @main.route('/imprimir_factura/<int:id>')
 def imprimir_factura(id):
     formato = request.args.get('formato', 'a4') 
     try:
         factura = Factura.query.get_or_404(id)
         
-        # VALIDACIÓN CRÍTICA: Si el cliente es None, creamos un objeto seguro
+        # Validación del cliente
         cliente_datos = factura.cliente
         if not cliente_datos:
             cliente_datos = {
@@ -412,28 +416,19 @@ def imprimir_factura(id):
             cliente=cliente_datos
         )
 
-        path_wkhtmltopdf = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
-        config = pdfkit.configuration(wkhtmltopdf=path_wkhtmltopdf)
-        
-        if formato == 'ticket':
-            options = {
-                'page-width': '80mm', 
-                'page-height': '297mm', 
-                'encoding': "UTF-8",
-                'margin-top': '2mm', 
-                'margin-right': '2mm', 
-                'margin-bottom': '2mm', 
-                'margin-left': '2mm',
-                'enable-local-file-access': None
-            }
-        else:
-            options = {
-                'page-size': 'A4', 
-                'encoding': "UTF-8", 
-                'enable-local-file-access': None
-            }
+        # --- CONFIGURACIÓN PARA WINDOWS (SOLO LOCAL) ---
+        # Esto evita el error de "cannot load library" en tu PC
+        if platform.system() == "Windows":
+            gtk_bin = r'C:\Program Files\GTK3-Runtime Win64\bin' # Verifica que esta sea tu ruta
+            if os.path.exists(gtk_bin):
+                if hasattr(os, 'add_dll_directory'):
+                    os.add_dll_directory(gtk_bin)
+                if gtk_bin not in os.environ['PATH']:
+                    os.environ['PATH'] = gtk_bin + os.pathsep + os.environ['PATH']
 
-        pdf = pdfkit.from_string(html_content, False, configuration=config, options=options)
+        # GENERACIÓN CON WEASYPRINT
+        # WeasyPrint aplicará automáticamente el tamaño definido en el CSS (@page)
+        pdf = HTML(string=html_content).write_pdf()
         
         response = make_response(pdf)
         response.headers['Content-Type'] = 'application/pdf'
@@ -443,6 +438,7 @@ def imprimir_factura(id):
     except Exception as e:
         print(f"Error PDF: {str(e)}")
         return f"Error al generar el PDF: {str(e)}", 500
+       
 # ==========================================
 # --- 7. CONTROL DE CAJA ---
 # ==========================================
