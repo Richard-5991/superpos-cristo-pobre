@@ -398,7 +398,7 @@ def imprimir_factura(id):
     try:
         factura = Factura.query.get_or_404(id)
         
-        # Validación del cliente
+        # Validación del cliente (maneja objeto o diccionario)
         cliente_datos = factura.cliente
         if not cliente_datos:
             cliente_datos = {
@@ -407,6 +407,7 @@ def imprimir_factura(id):
                 'direccion': 'S/N'
             }
 
+        # Selección de plantilla
         template = 'formato_factura.html' if formato == 'a4' else 'formato_ticket.html'
         
         html_content = render_template(
@@ -416,29 +417,31 @@ def imprimir_factura(id):
             cliente=cliente_datos
         )
 
-        # --- CONFIGURACIÓN PARA WINDOWS (SOLO LOCAL) ---
-        # Esto evita el error de "cannot load library" en tu PC
+        # --- COMPATIBILIDAD CON WINDOWS (LOCAL) ---
         if platform.system() == "Windows":
-            gtk_bin = r'C:\Program Files\GTK3-Runtime Win64\bin' # Verifica que esta sea tu ruta
+            gtk_bin = r'C:\Program Files\GTK3-Runtime Win64\bin'
             if os.path.exists(gtk_bin):
                 if hasattr(os, 'add_dll_directory'):
                     os.add_dll_directory(gtk_bin)
                 if gtk_bin not in os.environ['PATH']:
                     os.environ['PATH'] = gtk_bin + os.pathsep + os.environ['PATH']
 
-        # GENERACIÓN CON WEASYPRINT
-        # WeasyPrint aplicará automáticamente el tamaño definido en el CSS (@page)
-        pdf = HTML(string=html_content).write_pdf()
+        # --- GENERACIÓN CON WEASYPRINT (VERSIÓN MODERNA) ---
+        # Se corrigió el error: HTML() ahora solo recibe el contenido.
+        # Las opciones como presentational_hints van dentro de write_pdf().
+        pdf = HTML(string=html_content).write_pdf(presentational_hints=True)
         
         response = make_response(pdf)
         response.headers['Content-Type'] = 'application/pdf'
         response.headers['Content-Disposition'] = f'inline; filename=factura_{factura.numero_factura}.pdf'
+        
         return response
 
     except Exception as e:
-        print(f"Error PDF: {str(e)}")
+        # Esto te ayudará a ver el error real en los logs de Render
+        print(f"Error crítico en PDF: {str(e)}")
         return f"Error al generar el PDF: {str(e)}", 500
-       
+  
 # ==========================================
 # --- 7. CONTROL DE CAJA ---
 # ==========================================
