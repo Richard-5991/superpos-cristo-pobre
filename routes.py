@@ -1,6 +1,7 @@
-import json
+import os
+import platform
 import pandas as pd
-from datetime import date, datetime
+from datetime import datetime
 from functools import wraps
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, session, flash, make_response
 from sqlalchemy import func
@@ -387,10 +388,6 @@ def guardar_factura():
         print(f"Error al guardar factura: {str(e)}") # Para que lo veas en consola
         return jsonify({'error': str(e)}), 500
 
-import os
-import platform
-from flask import render_template, make_response, request
-from weasyprint import HTML
 
 @main.route('/imprimir_factura/<int:id>')
 def imprimir_factura(id):
@@ -398,7 +395,7 @@ def imprimir_factura(id):
     try:
         factura = Factura.query.get_or_404(id)
         
-        # Validación del cliente (maneja objeto o diccionario)
+        # Validación del cliente
         cliente_datos = factura.cliente
         if not cliente_datos:
             cliente_datos = {
@@ -422,14 +419,19 @@ def imprimir_factura(id):
             gtk_bin = r'C:\Program Files\GTK3-Runtime Win64\bin'
             if os.path.exists(gtk_bin):
                 if hasattr(os, 'add_dll_directory'):
-                    os.add_dll_directory(gtk_bin)
+                    try:
+                        os.add_dll_directory(gtk_bin)
+                    except Exception:
+                        pass
                 if gtk_bin not in os.environ['PATH']:
                     os.environ['PATH'] = gtk_bin + os.pathsep + os.environ['PATH']
 
-        # --- GENERACIÓN CON WEASYPRINT (VERSIÓN MODERNA) ---
-        # Se corrigió el error: HTML() ahora solo recibe el contenido.
-        # Las opciones como presentational_hints van dentro de write_pdf().
-        pdf = HTML(string=html_content).write_pdf(presentational_hints=True)
+        # --- GENERACIÓN CON WEASYPRINT (SINTAXIS ULTRA SEGURA) ---
+        # Separamos los pasos para evitar el error de argumentos posicionales
+        documento_html = HTML(string=html_content)
+        
+        # Generamos el PDF pasando los argumentos solo por nombre (keyword arguments)
+        pdf = documento_html.write_pdf(presentational_hints=True)
         
         response = make_response(pdf)
         response.headers['Content-Type'] = 'application/pdf'
@@ -438,8 +440,9 @@ def imprimir_factura(id):
         return response
 
     except Exception as e:
-        # Esto te ayudará a ver el error real en los logs de Render
-        print(f"Error crítico en PDF: {str(e)}")
+        # Imprime el error detallado en la consola de Render
+        import traceback
+        print(traceback.format_exc()) 
         return f"Error al generar el PDF: {str(e)}", 500
   
 # ==========================================
