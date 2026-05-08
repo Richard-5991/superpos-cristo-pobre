@@ -27,7 +27,7 @@ def add_security_headers(response):
     scripts = "'self' 'unsafe-inline' 'unsafe-eval' https://code.jquery.com https://cdn.jsdelivr.net https://cdn.jsdelivr.net/npm/sweetalert2@11"
     styles = "'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com"
     fonts = "'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com"
-    imgs = "'self' data: https:"
+    imgs = "'self' data: https: blob:"
 
     csp = (
         f"default-src 'self'; "
