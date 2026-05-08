@@ -1,14 +1,14 @@
 # Usamos una imagen de Python oficial
 FROM python:3.10-slim
 
-# Instalamos las librerías de sistema necesarias para WeasyPrint
+# Instalamos las librerías de sistema corregidas
 RUN apt-get update && apt-get install -y \
     python3-dev \
     gcc \
     libcairo2 \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
-    libgdk-pixbuf2.0-0 \
+    libgdk-pixbuf-2.0-0 \
     libffi-dev \
     shared-mime-info \
     && apt-get clean
