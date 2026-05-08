@@ -393,58 +393,40 @@ def guardar_factura():
 def imprimir_factura(id):
     formato = request.args.get('formato', 'a4') 
     try:
+        # IMPORTACIÓN LOCAL PARA EVITAR CONFLICTOS DE INICIALIZACIÓN
+        from weasyprint import HTML
+        
         factura = Factura.query.get_or_404(id)
-        
-        # Validación del cliente
-        cliente_datos = factura.cliente
-        if not cliente_datos:
-            cliente_datos = {
-                'nombre': 'CONSUMIDOR FINAL',
-                'cedula': '9999999999',
-                'direccion': 'S/N'
-            }
+        cliente_datos = factura.cliente or {'nombre': 'CONSUMIDOR FINAL', 'cedula': '9999999999', 'direccion': 'S/N'}
 
-        # Selección de plantilla
         template = 'formato_factura.html' if formato == 'a4' else 'formato_ticket.html'
-        
-        html_content = render_template(
-            template, 
-            factura=factura, 
-            detalles=factura.detalles, 
-            cliente=cliente_datos
-        )
+        html_content = render_template(template, factura=factura, detalles=factura.detalles, cliente=cliente_datos)
 
-        # --- COMPATIBILIDAD CON WINDOWS (LOCAL) ---
+        # Configuración Windows (Se salta en Render)
         if platform.system() == "Windows":
             gtk_bin = r'C:\Program Files\GTK3-Runtime Win64\bin'
             if os.path.exists(gtk_bin):
                 if hasattr(os, 'add_dll_directory'):
-                    try:
-                        os.add_dll_directory(gtk_bin)
-                    except Exception:
-                        pass
-                if gtk_bin not in os.environ['PATH']:
-                    os.environ['PATH'] = gtk_bin + os.pathsep + os.environ['PATH']
+                    os.add_dll_directory(gtk_bin)
+                os.environ['PATH'] = gtk_bin + os.pathsep + os.environ['PATH']
 
-        # --- GENERACIÓN CON WEASYPRINT (SINTAXIS ULTRA SEGURA) ---
-        # Separamos los pasos para evitar el error de argumentos posicionales
-        documento_html = HTML(string=html_content)
-        
-        # Generamos el PDF pasando los argumentos solo por nombre (keyword arguments)
-        pdf = documento_html.write_pdf(presentational_hints=True)
+        # GENERACIÓN LIMPIA
+        # Creamos el objeto solo con el string
+        documento = HTML(string=html_content)
+        # Generamos el PDF indicando el parámetro por nombre
+        pdf = documento.write_pdf(presentational_hints=True)
         
         response = make_response(pdf)
         response.headers['Content-Type'] = 'application/pdf'
         response.headers['Content-Disposition'] = f'inline; filename=factura_{factura.numero_factura}.pdf'
-        
         return response
 
     except Exception as e:
-        # Imprime el error detallado en la consola de Render
         import traceback
-        print(traceback.format_exc()) 
+        print(traceback.format_exc())
         return f"Error al generar el PDF: {str(e)}", 500
-  
+    
+
 # ==========================================
 # --- 7. CONTROL DE CAJA ---
 # ==========================================

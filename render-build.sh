@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
-# Salir si hay un error
+# exit on error
 set -o errexit
 
-# Instalar dependencias de Python
+# Actualizar pip e instalar librerías de Python
+pip install --upgrade pip
 pip install -r requirements.txt
 
-# Instalar librerías de sistema necesarias para WeasyPrint en Render
-apt-get update && apt-get install -y libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0
+# Instalación de librerías de sistema para WeasyPrint
+# Estas son las 4 necesarias para que Cairo y Pango funcionen en Render
+apt-get update && apt-get install -y \
+  libpango-1.0-0 \
+  libharfbuzz0b \
+  libpangoft2-1.0-0 \
+  libpangocairo-1.0-0
