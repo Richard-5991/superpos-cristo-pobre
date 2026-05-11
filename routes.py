@@ -473,28 +473,23 @@ def imprimir_factura(id):
 # --- ENVIO POR CORREO ---
 # ==========================================
 
-import smtplib # Para capturar errores específicos de SMTP
 def enviar_correo_factura(factura, pdf_binario):
-    # Importaciones locales para evitar errores circulares
     from app import app, mail
     from models import Cliente 
     from flask_mail import Message
     import os
+    import smtplib # Para capturar errores específicos
 
-    # 1. FORZAR CONTEXTO: Sin esto, Flask-Mail no lee la configuración en Render
     with app.app_context():
         try:
             cliente = Cliente.query.get(factura.cliente_id)
             if not cliente or not cliente.correo:
-                print(f">>> ERROR: Factura {factura.numero_factura} no tiene cliente con correo.")
+                print(f">>> ERROR: Factura {factura.numero_factura} sin correo de destino.")
                 return False
 
-            # 2. ASEGURAR REMITENTE: Google rechaza el envío si el sender no es tu Gmail
-            # Si os.environ no funciona, pon tu correo entre comillas directamente
-            remitente = app.config.get('MAIL_USERNAME') or os.environ.get('MAIL_USERNAME')
-
+            remitente = app.config.get('MAIL_USERNAME')
             msg = Message(
-                subject=f"Factura de Compra #{factura.numero_factura} - Supermercado Cristo Pobre",
+                subject=f"Factura #{factura.numero_factura} - Supermercado Cristo Pobre",
                 recipients=[cliente.correo],
                 body=f"Hola {cliente.nombre}, adjuntamos su comprobante de pago.",
                 sender=remitente
@@ -506,19 +501,28 @@ def enviar_correo_factura(factura, pdf_binario):
                 data=pdf_binario
             )
 
-            # 3. VERIFICACIÓN REAL DE ENVÍO
-            print(f">>> Intentando conectar a SMTP para: {cliente.correo}...")
-            mail.send(msg)
-            print(f">>> ¡CONFIRMADO POR GOOGLE! Enviado a {cliente.correo}")
-            return True
+            # Intentamos enviar hasta 2 veces si hay timeout
+            intentos = 0
+            while intentos < 2:
+                try:
+                    print(f">>> Intento {intentos + 1}: Conectando a {app.config['MAIL_SERVER']}:{app.config['MAIL_PORT']}...")
+                    mail.send(msg)
+                    print(f">>> ¡CONFIRMADO POR GOOGLE! Enviado a {cliente.correo}")
+                    return True
+                except (smtplib.SMTPConnectError, smtplib.SMTPConnectTimeoutError, TimeoutError):
+                    intentos += 1
+                    print(f">>> Timeout en intento {intentos}. Reintentando...")
+                    import time
+                    time.sleep(2) # Esperar 2 segundos antes de reintentar
+            
+            return False
 
         except Exception as e:
             import traceback
-            print("--- ERROR CRÍTICO EN EL ENVÍO ---")
-            # Esto te dirá exactamente si es la clave, el puerto o la red
+            print("--- ERROR FINAL TRAS REINTENTOS ---")
             print(traceback.format_exc())
             return False
-        
+
 # ==========================================
 # --- 7. CONTROL DE CAJA ---
 # ==========================================
