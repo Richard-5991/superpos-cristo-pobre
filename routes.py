@@ -1,3 +1,4 @@
+import io
 import os
 import platform
 import pandas as pd
@@ -6,7 +7,7 @@ from functools import wraps
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, session, flash, make_response
 from sqlalchemy import func
 from decimal import Decimal, ROUND_HALF_UP
-from weasyprint import HTML
+from flask import send_file
 
 # Importamos los modelos
 from models import db, Producto, Cliente, Factura, DetalleFactura, Caja, Usuario, Rol, Categoria
@@ -324,34 +325,47 @@ def guardar_factura():
         if not caja_activa:
             return jsonify({'error': 'DEBE ABRIR CAJA PRIMERO.'}), 400
 
-        # --- BLOQUEO DE SEGURIDAD ---
         if str(caja_activa.usuario_apertura_id) != user_cedula:
             responsable = caja_activa.usuario_apertura.nombre_completo if caja_activa.usuario_apertura else "OTRO USUARIO"
-            return jsonify({
-                'error': f'ACCESO DENEGADO: Esta caja fue abierta por {responsable}.'
-            }), 403
+            return jsonify({'error': f'ACCESO DENEGADO: Caja de {responsable}.'}), 403
 
-        # 2. CLIENTE
+        # 2. MANEJO DE CLIENTE
         cliente_data = data.get('cliente', {})
-        cedula_cliente = cliente_data.get('cedula')
+        cedula_cliente = str(cliente_data.get('cedula', '')).strip()
+        
+        # Buscamos al cliente por cédula
         cliente = Cliente.query.filter_by(cedula=cedula_cliente).first()
 
-        # --- 3. GENERAR NÚMERO FORMATO ECUADOR (001-001-000000001) ---
-        est = "001" # Puedes hacerlo dinámico si tienes varias sucursales
-        pto = "001" # Puedes hacerlo dinámico según la caja
-        
-        ultima_f = Factura.query.order_by(Factura.id.desc()).first()
-        # El secuencial oficial en Ecuador es de 9 dígitos
-        nuevo_secuencial = str(ultima_f.id + 1).zfill(9) if ultima_f else "000000001"
-        nuevo_numero = f"{est}-{pto}-{nuevo_secuencial}"
-        # ------------------------------------------------------------
+        # LOGICA SOLO PARA CONSUMIDOR FINAL:
+        # Si no existe y la cédula es la de CF, lo creamos con los campos de tu tabla
+        if not cliente and cedula_cliente in ['9999999999', '9999999999999', '']:
+            nuevo_cf = Cliente(
+                cedula=cedula_cliente if cedula_cliente else '9999999999',
+                nombre='CONSUMIDOR FINAL',
+                telefono='0000000000',
+                direccion='S/N',
+                correo='consumidor@final.com',
+                activo=True
+            )
+            db.session.add(nuevo_cf)
+            db.session.flush()
+            cliente = nuevo_cf
 
+        # Si después de lo anterior sigue sin existir cliente (porque no era CF y no se encontró)
+        if not cliente:
+            return jsonify({'error': f'Cliente con cédula {cedula_cliente} no encontrado.'}), 404
+
+        # 3. GENERAR NÚMERO FACTURA
+        ultima_f = Factura.query.order_by(Factura.id.desc()).first()
+        nuevo_secuencial = str(ultima_f.id + 1).zfill(9) if ultima_f else "000000001"
+        nuevo_numero = f"001-001-{nuevo_secuencial}"
+
+        # 4. CREAR FACTURA
         nueva_f = Factura(
             numero_factura=nuevo_numero,
             fecha=datetime.now(),
-            cliente_id=cliente.id if cliente else None,
+            cliente_id=cliente.id, # Ahora siempre tendrá un ID
             fv_usuario_id=user_cedula,
-            fa_usuario_id=None,
             caja_id=caja_activa.id,
             subtotal=float(data.get('subtotal', 0)),
             descuento=float(data.get('descuento', 0)),
@@ -364,20 +378,25 @@ def guardar_factura():
         db.session.add(nueva_f)
         db.session.flush()
 
-        # 4. DETALLES
+        # 5. DETALLES Y STOCK
         for item in data.get('productos', []):
             prod = Producto.query.get(item['id'])
             if prod:
+                cantidad = int(item['cantidad'])
+                # Validamos stock
+                if prod.stock < cantidad:
+                    db.session.rollback()
+                    return jsonify({'error': f'Stock insuficiente para {prod.nombre}.'}), 400
+
                 detalle = DetalleFactura(
                     factura_id=nueva_f.id,
                     producto_id=prod.id,
-                    # Guardamos el nombre para el histórico (foto del momento)
                     producto_nombre=prod.nombre, 
-                    cantidad=int(item['cantidad']),
+                    cantidad=cantidad,
                     precio_unitario=float(item['precio']),
-                    subtotal=float(item['cantidad']) * float(item['precio'])
+                    subtotal=cantidad * float(item['precio'])
                 )
-                prod.stock -= int(item['cantidad'])
+                prod.stock -= cantidad
                 db.session.add(detalle)
 
         db.session.commit()
@@ -385,24 +404,35 @@ def guardar_factura():
 
     except Exception as e:
         db.session.rollback()
-        print(f"Error al guardar factura: {str(e)}") # Para que lo veas en consola
+        import traceback
+        print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
-
+# --- RUTA DE IMPRESIÓN Y ENVÍO ---
 @main.route('/imprimir_factura/<int:id>')
 def imprimir_factura(id):
+    # Capturamos los parámetros de la URL
     formato = request.args.get('formato', 'a4') 
+    # Aquí capturamos el 'enviar' que viene del window.open
+    debe_enviar = request.args.get('enviar', 'false').lower() == 'true'
+    
     try:
-        # IMPORTACIÓN LOCAL PARA EVITAR CONFLICTOS DE INICIALIZACIÓN
         from weasyprint import HTML
+        import platform
         
         factura = Factura.query.get_or_404(id)
-        cliente_datos = factura.cliente or {'nombre': 'CONSUMIDOR FINAL', 'cedula': '9999999999', 'direccion': 'S/N'}
+        
+        # Lógica de cliente (si no tiene relación configurada, buscamos por ID)
+        from models import Cliente
+        cliente_db = Cliente.query.get(factura.cliente_id)
+        
+        cliente_datos = cliente_db or {'nombre': 'CONSUMIDOR FINAL', 'cedula': '9999999999', 'direccion': 'S/N'}
 
+        # Elegir el template según el formato
         template = 'formato_factura.html' if formato == 'a4' else 'formato_ticket.html'
         html_content = render_template(template, factura=factura, detalles=factura.detalles, cliente=cliente_datos)
 
-        # Configuración Windows (Se salta en Render)
+        # Configuración GTK para Windows
         if platform.system() == "Windows":
             gtk_bin = r'C:\Program Files\GTK3-Runtime Win64\bin'
             if os.path.exists(gtk_bin):
@@ -410,12 +440,19 @@ def imprimir_factura(id):
                     os.add_dll_directory(gtk_bin)
                 os.environ['PATH'] = gtk_bin + os.pathsep + os.environ['PATH']
 
-        # GENERACIÓN LIMPIA
-        # Creamos el objeto solo con el string
+        # GENERACIÓN DEL PDF
         documento = HTML(string=html_content)
-        # Generamos el PDF indicando el parámetro por nombre
         pdf = documento.write_pdf(presentational_hints=True)
-        
+
+        # LÓGICA DE ENVÍO DE CORREO
+        # Solo entrará aquí si en el JS pusiste &enviar=true
+        if debe_enviar:
+            print(f">>> Iniciando envío de correo para factura {factura.numero_factura}...")
+            enviar_correo_factura(factura, pdf)
+        else:
+            print(">>> Reimpresión detectada: No se envía correo.")
+
+        # DEVOLVER AL NAVEGADOR
         response = make_response(pdf)
         response.headers['Content-Type'] = 'application/pdf'
         response.headers['Content-Disposition'] = f'inline; filename=factura_{factura.numero_factura}.pdf'
@@ -424,8 +461,49 @@ def imprimir_factura(id):
     except Exception as e:
         import traceback
         print(traceback.format_exc())
-        return f"Error al generar el PDF: {str(e)}", 500
+        return f"Error: {str(e)}", 500
+
+   
+# ==========================================
+# --- ENVIO POR CORREO ---
+# ==========================================
+
+# --- FUNCIÓN AUXILIAR DE ENVÍO ---
+def enviar_correo_factura(factura, pdf_binario):
+    from app import mail
+    from models import Cliente 
+    from flask_mail import Message
     
+    try:
+        cliente = Cliente.query.get(factura.cliente_id)
+        
+        if not cliente or not getattr(cliente, 'correo', None):
+            print(f">>> Factura {factura.numero_factura}: No se envió (sin correo)")
+            return False
+
+        msg = Message(
+            subject=f"Factura de Compra #{factura.numero_factura} - Supermercado Cristo Pobre",
+            recipients=[cliente.correo],
+            body=f"Hola {cliente.nombre}, adjuntamos su comprobante de pago."
+        )
+
+        # --- CAMBIO CRÍTICO AQUÍ ---
+        # Usamos explícitamente los nombres de los parámetros para que Flask-Mail 
+        # no confunda los datos binarios con una cadena de texto.
+        msg.attach(
+            filename=f"factura_{factura.numero_factura}.pdf",
+            content_type="application/pdf",
+            data=pdf_binario  # Forzamos que entre como parámetro 'data'
+        )
+
+        mail.send(msg)
+        print(f">>> ÉXITO TOTAL: Enviado a {cliente.correo}")
+        return True
+
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return False
 
 # ==========================================
 # --- 7. CONTROL DE CAJA ---

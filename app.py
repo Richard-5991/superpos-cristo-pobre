@@ -1,9 +1,13 @@
-from flask import Flask
+from flask import Flask, render_template
 from models import db, Usuario, Rol, Categoria
-from routes import main
 from config import Config
 import os
 import time
+from dotenv import load_dotenv
+from flask_mail import Mail # Importamos Mail
+
+# Cargar variables de entorno desde .env
+load_dotenv() 
 
 # =================================================   
 # CONFIGURACIÓN DE HORA PARA ECUADOR (RENDER/LINUX)
@@ -18,42 +22,65 @@ app = Flask(__name__)
 # Aplicamos la configuración desde la clase Config
 app.config.from_object(Config)
 
-db.init_app(app)
+# =================================================
+# CONFIGURACIÓN DE CORREO - PRUEBA DIRECTA
+# =================================================
+#app.config['MAIL_SERVER'] = 'sandbox.smtp.mailtrap.io'
+#app.config['MAIL_PORT'] = 2525
+#app.config['MAIL_USE_TLS'] = True
+#app.config['MAIL_USE_SSL'] = False
+
+# COPIA ESTOS DATOS DE TU CUENTA DE MAILTRAP (SIN ESPACIOS)
+#app.config['MAIL_USERNAME'] = 'fd8781a08948cb' 
+#app.config['MAIL_PASSWORD'] = '9a2be262ae845f'
+
+#app.config['MAIL_DEFAULT_SENDER'] = 'facturacion@cristopobre.com'
+
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USE_SSL'] = False
+
+# Esto lee las variables que acabas de poner en Render
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
+
+mail = Mail(app)
+
+
+# Inicializamos Mail ANTES de importar las rutas
+mail = Mail(app)
+# =================================================
+
+# IMPORTACIÓN DE RUTAS (Aquí abajo para evitar el error circular)
+from routes import main
 app.register_blueprint(main)
 
-# Seguridad (CSP) - Permite scripts y estilos externos necesarios
+db.init_app(app)
+
+# Seguridad (CSP)
 @app.after_request
 def add_security_headers(response):
     scripts = "'self' 'unsafe-inline' 'unsafe-eval' https://code.jquery.com https://cdn.jsdelivr.net https://cdn.jsdelivr.net/npm/sweetalert2@11"
     styles = "'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com"
     fonts = "'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com"
     imgs = "'self' data: https: blob:"
-
-    csp = (
-        f"default-src 'self'; "
-        f"script-src {scripts}; "
-        f"style-src {styles}; "
-        f"font-src {fonts}; "
-        f"img-src {imgs}; "
-        f"connect-src 'self' https://cdn.jsdelivr.net;"
-    )
-
+    csp = (f"default-src 'self'; script-src {scripts}; style-src {styles}; font-src {fonts}; img-src {imgs}; connect-src 'self' https://cdn.jsdelivr.net;")
     response.headers['Content-Security-Policy'] = csp
     return response
 
-# Datos iniciales (Se ejecuta al iniciar en Render)
+# Datos iniciales
 def cargar_datos_base():
     try:
-        # 1. Crear Roles (Asegurando IDs 1 y 2)
         if not Rol.query.first():
             admin_rol = Rol(id=1, nombre='administrador')
             empleado_rol = Rol(id=2, nombre='empleado')
             db.session.add(admin_rol)
             db.session.add(empleado_rol)
             db.session.commit()
-            print("✅ Roles iniciales creados (1: admin, 2: empleado)")
+            print("✅ Roles iniciales creados")
 
-        # 2. Crear Usuario Administrador inicial
         cedula_admin = '1111111111'
         if not Usuario.query.filter_by(cedula=cedula_admin).first():
             admin_user = Usuario(
@@ -65,26 +92,24 @@ def cargar_datos_base():
                 rol_id=1
             )
             db.session.add(admin_user)
-            print("✅ Usuario administrador 'admin' creado")
 
-        # 3. Crear Categorías iniciales
         if not Categoria.query.first():
             cats = ['Viveres', 'Limpieza', 'Lacteos', 'Bebidas', 'Snacks']
             for c in cats:
                 db.session.add(Categoria(nombre=c))
-            print("✅ Categorías iniciales creadas")
+            print("✅ Categorías creadas")
 
         db.session.commit()
     except Exception as e:
         db.session.rollback()
         print(f"❌ Error al cargar datos: {e}")
 
-
-# 🚀 Inicialización automática en Render
+# 🚀 Inicialización automática
 with app.app_context():
-    db.create_all()  # Crea las tablas si no existen (PostgreSQL)
+    db.create_all()
     cargar_datos_base()
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
+    print(f"DEBUG: Mail User es {app.config['MAIL_USERNAME']}")
     app.run(host='0.0.0.0', port=port)

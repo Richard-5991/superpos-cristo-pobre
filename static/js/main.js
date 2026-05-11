@@ -374,34 +374,28 @@ function prepararParaNuevoCliente(ced, nom, dir) {
 
 async function finalizarFactura() {
     try {
-        // 1. VERIFICACIÓN INICIAL DE SEGURIDAD (Caja y Usuario)
+        // 1. VERIFICACIÓN DE CAJA
         const checkCaja = await fetch('/api/verificar_estado_caja');
         const estadoCaja = await checkCaja.json();
 
-        // Validar si la caja está abierta
         if (!estadoCaja.abierta) {
             return Swal.fire({
                 title: 'Caja Cerrada',
                 text: 'Debe abrir la caja antes de realizar ventas.',
                 icon: 'warning',
-                showCancelButton: true,
-                allowOutsideClick: false, 
-                allowEscapeKey: false,
-                confirmButtonText: '<i class="fas fa-cash-register me-2"></i>Ir a Apertura',
-                cancelButtonText: 'Cerrar',
-                confirmButtonColor: '#28a745'
+                confirmButtonText: 'Ir a Apertura',
+                showCloseButton: true
             }).then((result) => {
                 if (result.isConfirmed) window.location.href = '/control_caja';
             });
         }
 
-        // VALIDACIÓN CLAVE: ¿Es el mismo usuario que abrió la caja?
         if (!estadoCaja.es_responsable) {
-            return Swal.fire({
-                title: 'Acceso Denegado',
-                text: `Esta caja fue abierta por ${estadoCaja.responsable_nombre}. Solo esa persona puede facturar.`,
-                icon: 'error',
-                confirmButtonColor: '#dc3545'
+            return Swal.fire({ 
+                title: 'Acceso Denegado', 
+                text: `Esta caja pertenece a ${estadoCaja.responsable_nombre}`, 
+                icon: 'error', 
+                showCloseButton: true 
             });
         }
 
@@ -409,114 +403,73 @@ async function finalizarFactura() {
         return Swal.fire('Error', "No se pudo verificar el permiso de caja.", 'error');
     }
 
-    // 2. CAPTURA DE DATOS DE LA INTERFAZ
+    // 2. CAPTURA DE DATOS
     const inputCedula = document.getElementById('factura_cedula');
     const inputNombre = document.getElementById('factura_nombre');
     const inputDireccion = document.getElementById('factura_direccion');
     const metodoPagoElement = document.getElementById('metodo-pago');
-    const inputDescuento = document.getElementById('descuento-global');
-    const inputMotivo = document.getElementById('motivo-descuento');
-
-    if (window.detalleFactura.length === 0) {
-        return Swal.fire('Error', "Agregue productos primero.", 'warning');
-    }
-
-    const totalVenta = parseFloat(document.getElementById('total-final').innerText.replace('$ ', '')) || 0;
-    const descuentoValor = parseFloat(inputDescuento?.value || 0);
-    const motivoValor = inputMotivo?.value.trim().toUpperCase() || "";
-
+    
     const cedulaLimpia = inputCedula.value.trim();
     const nombreLimpio = inputNombre.value.trim().toUpperCase();
-    const direccionLimpia = (inputDireccion?.value || "S/N").trim().toUpperCase();
-
     const esConsumidorFinal = (cedulaLimpia === '9999999999999' || cedulaLimpia === '9999999999' || cedulaLimpia === "");
 
-    // 3. VALIDACIONES DE NEGOCIO
-    // Validación de motivo de descuento obligatorio
-    if (descuentoValor > 0 && motivoValor === "") {
-        return Swal.fire({
-            title: 'Motivo Obligatorio',
-            text: 'Debe ingresar el motivo para aplicar un descuento.',
-            icon: 'warning'
-        }).then(() => {
-            setTimeout(() => inputMotivo.focus(), 500);
-        });
-    }
+    if (window.detalleFactura.length === 0) return Swal.fire('Error', "Agregue productos a la lista.", 'warning');
 
+    const totalVenta = parseFloat(document.getElementById('total-final').innerText.replace('$ ', '')) || 0;
+
+    // 3. VALIDACIÓN DE IDENTIFICACIÓN > $50
     if (totalVenta > 50.00 && esConsumidorFinal) {
-        await Swal.fire({
-            title: 'Identificación Obligatoria',
-            text: `Ventas mayores a $50.00 requieren datos del cliente.`,
-            icon: 'error'
+        await Swal.fire({ 
+            title: 'Identificación Obligatoria', 
+            text: 'Ventas mayores a $50 requieren datos del cliente.', 
+            icon: 'error', 
+            showCloseButton: true 
         });
-        if (typeof prepararParaNuevoCliente === "function") {
-            prepararParaNuevoCliente(inputCedula, inputNombre, inputDireccion);
-        }
+        if (typeof prepararParaNuevoCliente === "function") prepararParaNuevoCliente(inputCedula, inputNombre, inputDireccion);
         return; 
     }
 
-    if (!esConsumidorFinal && (cedulaLimpia === "" || nombreLimpio === "")) {
-        return Swal.fire('Atención', "Debe completar Cédula y Nombre.", 'warning');
-    }
-
-    // 4. CONFIRMACIONES FINALES
+    // 4. CONFIRMACIÓN INICIAL
     const preguntaIdentidad = await Swal.fire({
-        title: '¿Confirmar Datos?',
+        title: '¿Confirmar Venta?',
         text: `¿Venta para: ${nombreLimpio || "CONSUMIDOR FINAL"}?`,
         icon: 'question',
         showCancelButton: true,
-        allowOutsideClick: false, 
-        allowEscapeKey: false,
-        confirmButtonText: 'Sí, continuar',
-        cancelButtonText: 'No, cambiar datos',
+        showCloseButton: true,
+        allowOutsideClick: false,
+        confirmButtonText: 'Sí, guardar venta',
+        cancelButtonText: 'No, corregir datos',
         confirmButtonColor: '#28a745',
         cancelButtonColor: '#dc3545'
     });
 
+    // Si cierra con la X o cancela, simplemente sale de la función sin recargar
     if (!preguntaIdentidad.isConfirmed) {
-        if (typeof prepararParaNuevoCliente === "function") {
-            prepararParaNuevoCliente(inputCedula, inputNombre, inputDireccion);
+        if (preguntaIdentidad.dismiss === Swal.DismissReason.cancel) {
+            if (typeof prepararParaNuevoCliente === "function") {
+                prepararParaNuevoCliente(inputCedula, inputNombre, inputDireccion);
+            }
         }
-        return;
-    } 
+        return; 
+    }
 
-    const preguntaFormato = await Swal.fire({
-        title: 'Seleccione Formato',
-        text: '¿En qué formato desea imprimir?',
-        icon: 'info',
-        showDenyButton: true,
-        showCancelButton: true,
-        confirmButtonText: '<i class="fas fa-file-pdf"></i> Formato A4',
-        denyButtonText: '<i class="fas fa-receipt"></i> Formato Ticket',
-        allowOutsideClick: false, 
-        allowEscapeKey: false,
-        cancelButtonText: 'No Guardar Venta',
-        confirmButtonColor: '#28a745',
-        denyButtonColor: '#17a2b8',
-        cancelButtonColor: '#dc3545',
-        reverseButtons: true
-    });
-
-    if (preguntaFormato.isDismissed && preguntaFormato.dismiss === Swal.DismissReason.cancel) return; 
-
-    const tipoFormato = preguntaFormato.isConfirmed ? 'a4' : 'ticket';
-
-    // 5. ENVÍO AL SERVIDOR
+    // PREPARAR DATOS PARA EL SERVIDOR
     const datos = {
         cliente: {
             cedula: cedulaLimpia || "9999999999999",
             nombre: nombreLimpio || "CONSUMIDOR FINAL",
-            direccion: direccionLimpia
+            direccion: (inputDireccion?.value || "S/N").trim().toUpperCase()
         },
         productos: window.detalleFactura,
         subtotal: parseFloat(document.getElementById('subtotal-bruto').innerText.replace('$ ', '')),
-        descuento: descuentoValor,
-        motivo_descuento: motivoValor,
+        descuento: parseFloat(document.getElementById('descuento-global')?.value || 0),
+        motivo_descuento: document.getElementById('motivo-descuento')?.value.trim().toUpperCase() || "",
         total: totalVenta,
         metodo_pago: metodoPagoElement.value
     };
 
     try {
+        // GUARDAMOS EN LA BASE DE DATOS
         const respuesta = await fetch('/api/guardar_factura', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -525,18 +478,66 @@ async function finalizarFactura() {
 
         const resultado = await respuesta.json();
 
-        if (respuesta.ok) {
-            const idFactura = resultado.id || resultado.factura_id;
-            if (idFactura) {
-                window.open(`/imprimir_factura/${idFactura}?formato=${tipoFormato}`, '_blank');
-            }
-            await Swal.fire({ title: 'Venta Registrada', icon: 'success', timer: 2000, showConfirmButton: false });
-            location.reload(); 
-        } else {
-            Swal.fire('Error en Servidor', resultado.error || "No se pudo guardar.", 'error');
+        if (!respuesta.ok) {
+            return Swal.fire('Error', resultado.error || "No se pudo procesar la venta.", 'error');
         }
+
+        const idFactura = resultado.id || resultado.factura_id;
+
+        // 5. LÓGICA POST-GUARDADO
+        if (esConsumidorFinal) {
+            // Caso Consumidor Final: Directo al éxito y recarga
+            await Swal.fire({ title: 'Venta Registrada', icon: 'success', timer: 1500, showConfirmButton: false });
+            location.reload();
+        } else {
+            // Caso Cliente con Datos: Preguntar formato
+            const seleccionAccion = await Swal.fire({
+                title: 'Venta Guardada',
+                text: '¿Cómo desea entregar el comprobante?',
+                icon: 'success',
+                showDenyButton: true,
+                showCancelButton: true,
+                showCloseButton: true,
+                allowOutsideClick: false,
+                confirmButtonText: '<i class="fas fa-envelope"></i> Correo',
+                denyButtonText: '<i class="fas fa-receipt"></i> Ticket',
+                cancelButtonText: '<i class="fas fa-file-pdf"></i> A4',
+                confirmButtonColor: '#6f42c1', 
+                denyButtonColor: '#17a2b8',    
+                cancelButtonColor: '#28a745'
+            });
+
+            // Si cierra con la X aquí, recargamos porque la venta ya se guardó
+            if (seleccionAccion.isDismissed && seleccionAccion.dismiss === Swal.DismissReason.close) {
+                location.reload();
+                return;
+            }
+
+            if (seleccionAccion.isConfirmed) {
+                // OPCIÓN CORREO: Envío silencioso
+                Swal.fire({
+                    title: 'Enviando Correo...',
+                    text: 'Espere un momento',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+                
+                await fetch(`/imprimir_factura/${idFactura}?formato=a4&enviar=true`);
+                
+                await Swal.fire({ title: '¡Enviado!', text: 'Factura enviada con éxito.', icon: 'success', timer: 1500, showConfirmButton: false });
+                location.reload();
+
+            } else {
+                // OPCIÓN TICKET O A4: Abre pestaña y recarga
+                let tipoFormato = seleccionAccion.isDenied ? 'ticket' : 'a4';
+                window.open(`/imprimir_factura/${idFactura}?formato=${tipoFormato}&enviar=false`, '_blank');
+                location.reload();
+            }
+        }
+
     } catch (error) {
-        Swal.fire('Error Crítico', "Error de conexión al guardar.", 'error');
+        console.error(error);
+        Swal.fire('Error Crítico', "Ocurrió un error al conectar con el servidor.", 'error');
     }
 }
 
