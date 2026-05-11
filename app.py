@@ -37,10 +37,10 @@ app.config.from_object(Config)
 #app.config['MAIL_DEFAULT_SENDER'] = 'facturacion@cristopobre.com'
 
 # Cambia 'smtp.gmail.com' por esta IP (es un servidor de Google)
-app.config['MAIL_SERVER'] = '74.125.142.108'
-app.config['MAIL_PORT'] = 465
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 25  # Intentamos el puerto más viejo y desprotegido
 app.config['MAIL_USE_TLS'] = False
-app.config['MAIL_USE_SSL'] = True
+app.config['MAIL_USE_SSL'] = False
 app.config['MAIL_USERNAME'] = 'richiespinoza42@gmail.com' # Ponlo directo para probar
 app.config['MAIL_PASSWORD'] = 'qcrbuavkltgspqkk' # Ponla directo sin espacios
 
