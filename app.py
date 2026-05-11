@@ -37,7 +37,7 @@ app.config.from_object(Config)
 #app.config['MAIL_DEFAULT_SENDER'] = 'facturacion@cristopobre.com'
 
 # Cambia 'smtp.gmail.com' por esta IP (es un servidor de Google)
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_SERVER'] = '74.125.142.108'
 app.config['MAIL_PORT'] = 465
 app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
