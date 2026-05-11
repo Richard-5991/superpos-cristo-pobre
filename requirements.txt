@@ -12,3 +12,4 @@ numpy==1.26.4
 openpyxl==3.1.2
 pytz
 weasyprint==52.5
+python-dotenv
