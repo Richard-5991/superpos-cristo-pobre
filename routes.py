@@ -475,54 +475,50 @@ def imprimir_factura(id):
 
 import smtplib # Para capturar errores específicos de SMTP
 def enviar_correo_factura(factura, pdf_binario):
-    from app import mail, app 
+    # Importaciones locales para evitar errores circulares
+    from app import app, mail
     from models import Cliente 
     from flask_mail import Message
-    
+    import os
+
+    # 1. FORZAR CONTEXTO: Sin esto, Flask-Mail no lee la configuración en Render
     with app.app_context():
-        # ACTIVAR DEBUG DE SMTP (Solo para diagnóstico)
-        # Esto imprimirá la comunicación con Gmail en los logs de Render
-        import logging
-        logging.basicConfig(level=logging.DEBUG)
-        
         try:
             cliente = Cliente.query.get(factura.cliente_id)
-            if not cliente or not getattr(cliente, 'correo', None):
-                print(f">>> ERROR: Cliente {factura.cliente_id} sin correo.")
+            if not cliente or not cliente.correo:
+                print(f">>> ERROR: Factura {factura.numero_factura} no tiene cliente con correo.")
                 return False
 
-            print(f">>> Intentando enviar a: {cliente.correo} vía {app.config['MAIL_SERVER']}:{app.config['MAIL_PORT']}")
+            # 2. ASEGURAR REMITENTE: Google rechaza el envío si el sender no es tu Gmail
+            # Si os.environ no funciona, pon tu correo entre comillas directamente
+            remitente = app.config.get('MAIL_USERNAME') or os.environ.get('MAIL_USERNAME')
 
             msg = Message(
-                subject=f"Factura #{factura.numero_factura}",
+                subject=f"Factura de Compra #{factura.numero_factura} - Supermercado Cristo Pobre",
                 recipients=[cliente.correo],
-                body=f"Hola {cliente.nombre}, adjuntamos su factura.",
-                sender=app.config.get('MAIL_USERNAME')
+                body=f"Hola {cliente.nombre}, adjuntamos su comprobante de pago.",
+                sender=remitente
             )
 
             msg.attach(
                 filename=f"factura_{factura.numero_factura}.pdf",
                 content_type="application/pdf",
-                data=pdf_binario 
+                data=pdf_binario
             )
 
-            # ESTO ES LO QUE NECESITAS PARA VER LOS LOGS DETALLADOS
-            with mail.connect() as conn:
-                conn.send(msg)
-            
-            print(f">>> ÉXITO: Correo enviado a {cliente.correo}")
+            # 3. VERIFICACIÓN REAL DE ENVÍO
+            print(f">>> Intentando conectar a SMTP para: {cliente.correo}...")
+            mail.send(msg)
+            print(f">>> ¡CONFIRMADO POR GOOGLE! Enviado a {cliente.correo}")
             return True
 
-        except smtplib.SMTPAuthenticationError:
-            print(">>> ERROR DE LOGUEO: La contraseña de aplicación es incorrecta o Gmail bloqueó el acceso.")
-        except smtplib.SMTPConnectError:
-            print(">>> ERROR DE CONEXIÓN: No se pudo conectar al servidor de Gmail (revisa puerto/SSL).")
         except Exception as e:
             import traceback
-            print("--- LOG DE ERROR DETALLADO ---")
+            print("--- ERROR CRÍTICO EN EL ENVÍO ---")
+            # Esto te dirá exactamente si es la clave, el puerto o la red
             print(traceback.format_exc())
-        return False
-
+            return False
+        
 # ==========================================
 # --- 7. CONTROL DE CAJA ---
 # ==========================================
