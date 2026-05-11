@@ -8,6 +8,7 @@ from flask import Blueprint, render_template, request, jsonify, redirect, url_fo
 from sqlalchemy import func
 from decimal import Decimal, ROUND_HALF_UP
 from flask import send_file
+import threading
 
 # Importamos los modelos
 from models import db, Producto, Cliente, Factura, DetalleFactura, Caja, Usuario, Rol, Categoria
@@ -413,7 +414,6 @@ def guardar_factura():
 def imprimir_factura(id):
     # Capturamos los parámetros de la URL
     formato = request.args.get('formato', 'a4') 
-    # Aquí capturamos el 'enviar' que viene del window.open
     debe_enviar = request.args.get('enviar', 'false').lower() == 'true'
     
     try:
@@ -422,37 +422,42 @@ def imprimir_factura(id):
         
         factura = Factura.query.get_or_404(id)
         
-        # Lógica de cliente (si no tiene relación configurada, buscamos por ID)
-        from models import Cliente
+        # Lógica de cliente
         cliente_db = Cliente.query.get(factura.cliente_id)
-        
         cliente_datos = cliente_db or {'nombre': 'CONSUMIDOR FINAL', 'cedula': '9999999999', 'direccion': 'S/N'}
 
         # Elegir el template según el formato
         template = 'formato_factura.html' if formato == 'a4' else 'formato_ticket.html'
         html_content = render_template(template, factura=factura, detalles=factura.detalles, cliente=cliente_datos)
 
-        # Configuración GTK para Windows
+        # Configuración GTK para Windows (solo local)
         if platform.system() == "Windows":
             gtk_bin = r'C:\Program Files\GTK3-Runtime Win64\bin'
             if os.path.exists(gtk_bin):
                 if hasattr(os, 'add_dll_directory'):
-                    os.add_dll_directory(gtk_bin)
+                    try:
+                        os.add_dll_directory(gtk_bin)
+                    except:
+                        pass
                 os.environ['PATH'] = gtk_bin + os.pathsep + os.environ['PATH']
 
         # GENERACIÓN DEL PDF
         documento = HTML(string=html_content)
         pdf = documento.write_pdf(presentational_hints=True)
 
-        # LÓGICA DE ENVÍO DE CORREO
-        # Solo entrará aquí si en el JS pusiste &enviar=true
+        # LÓGICA DE ENVÍO DE CORREO ASÍNCRONA
         if debe_enviar:
-            print(f">>> Iniciando envío de correo para factura {factura.numero_factura}...")
-            enviar_correo_factura(factura, pdf)
+            print(f">>> Lanzando hilo de envío para factura {factura.numero_factura}...")
+            # Usamos threading para que el usuario no tenga que esperar a Gmail
+            email_thread = threading.Thread(
+                target=enviar_correo_factura, 
+                args=(factura, pdf)
+            )
+            email_thread.start()
         else:
             print(">>> Reimpresión detectada: No se envía correo.")
 
-        # DEVOLVER AL NAVEGADOR
+        # DEVOLVER AL NAVEGADOR (Inmediato)
         response = make_response(pdf)
         response.headers['Content-Type'] = 'application/pdf'
         response.headers['Content-Disposition'] = f'inline; filename=factura_{factura.numero_factura}.pdf'
@@ -460,10 +465,10 @@ def imprimir_factura(id):
 
     except Exception as e:
         import traceback
+        print("--- ERROR EN GENERACIÓN/ENVÍO ---")
         print(traceback.format_exc())
         return f"Error: {str(e)}", 500
 
-   
 # ==========================================
 # --- ENVIO POR CORREO ---
 # ==========================================
