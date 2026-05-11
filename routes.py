@@ -485,6 +485,7 @@ def enviar_correo_factura(factura, pdf_binario):
             subject=f"Factura de Compra #{factura.numero_factura} - Supermercado Cristo Pobre",
             recipients=[cliente.correo],
             body=f"Hola {cliente.nombre}, adjuntamos su comprobante de pago."
+            sender=os.environ.get('MAIL_USERNAME') # Agrégalo aquí explícitamente
         )
 
         # --- CAMBIO CRÍTICO AQUÍ ---
