@@ -501,11 +501,11 @@ def enviar_correo_factura(factura, pdf_binario):
             email_objeto = sib_api_v3_sdk.SendSmtpEmail(
                 to=[{"email": cliente.correo, "name": cliente.nombre}],
                 sender={"email": remitente_email, "name": "Supermercado Cristo Pobre"},
-                subject=f"Factura #{factura.numero_factura} - Supermercado Cristo Pobre",
+                subject=f"Nota de Venta #{factura.numero_factura} - Supermercado Cristo Pobre",
                 html_content=f"""
                     <h3>Hola {cliente.nombre},</h3>
                     <p>Gracias por su compra. Adjunto a este correo encontrará su comprobante de pago.</p>
-                    <p>Atentamente,<br><strong>Supermercado Cristo Pobre</strong></p>
+                    <p>Atentamente,<br><strong>Fabrica de Quesos Cristo Pobre</strong></p>
                 """,
                 attachment=[{
                     "content": pdf_base64,
