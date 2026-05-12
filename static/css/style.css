@@ -29,10 +29,14 @@ body {
     position: fixed;
     left: 0;
     top: 0;
-    padding: 2rem 0;
+    padding: 2rem 0 0 0; /* Ajustado padding */
     box-shadow: 10px 0 40px rgba(0,0,0,0.25);
     z-index: 1050;
     transition: var(--transition);
+    
+    /* Configuración para que el contenido interno pueda scrollear */
+    display: flex;
+    flex-direction: column;
 }
 
 .sidebar-brand {
@@ -40,6 +44,24 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-shrink: 0; /* Evita que el logo se encoja */
+}
+
+/* CONTENEDOR NUEVO PARA EL SCROLL */
+.sidebar-scroll-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 100px; /* Espacio para que el último item no choque abajo */
+}
+
+/* Personalización de la barra de scroll (Chrome/Safari) */
+.sidebar-scroll-container::-webkit-scrollbar {
+    width: 5px;
+}
+.sidebar-scroll-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
 }
 
 .brand-logo {
@@ -58,6 +80,7 @@ body {
 .brand-name { color:#fff; font-weight:800; font-size:1.5rem; }
 
 .nav-group { padding:0 1.2rem; margin-bottom:2rem; }
+
 .nav-label {
     color:#64748b;
     font-size:.65rem;
@@ -217,8 +240,6 @@ body {
     .content-body {
         padding: 1rem;
     }
-
-    .user-box { display: none !important; }
 }
 
 /* Tablas Responsivas */

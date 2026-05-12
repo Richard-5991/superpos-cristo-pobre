@@ -32,83 +32,89 @@
     <!-- Overlay para cerrar menú en móvil -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <aside class="sidebar" id="sidebar">
+<aside class="sidebar" id="sidebar">
+      <!-- El logo se queda fijo arriba -->
       <div class="sidebar-brand">
         <div class="brand-logo"><i class="fas fa-bolt"></i></div>
         <span class="brand-name">SuperPOS</span>
       </div>
 
-      <div class="nav-group">
-        <div class="nav-label">Operaciones</div>
-        <a
-          href="{{ url_for('main.index') }}"
-          class="nav-link {{ 'active' if request.path == url_for('main.index') }}"
-        >
-          <i class="fas fa-cash-register"></i> Facturación
-        </a>
+      <!-- Contenedor con Scroll: Esto permite bajar por el menú sin mover el logo -->
+      <div class="sidebar-scroll-container" style="flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 80px;">
+        
+        <div class="nav-group">
+          <div class="nav-label">Operaciones</div>
+          <a
+            href="{{ url_for('main.index') }}"
+            class="nav-link {{ 'active' if request.path == url_for('main.index') }}"
+          >
+            <i class="fas fa-cash-register"></i> Facturación
+          </a>
 
-        {% if not caja_activa_global %}
-        <a
-          href="{{ url_for('main.vista_caja') }}"
-          class="nav-link {{ 'active' if 'control_caja' in request.path }}"
-        >
-          <i class="fas fa-unlock"></i> Aperturar Caja
-        </a>
-        {% else %} {% if session.rol == 'administrador' or
-        caja_activa_global.usuario_apertura_id|string ==
-        session.user_cedula|string %}
-        <a
-          href="{{ url_for('main.vista_caja') }}"
-          class="nav-link {{ 'active' if 'control_caja' in request.path }}"
-        >
-          <i class="fas fa-vault"></i> Control Caja
-        </a>
-        {% endif %} {% endif %}
+          {% if not caja_activa_global %}
+          <a
+            href="{{ url_for('main.vista_caja') }}"
+            class="nav-link {{ 'active' if 'control_caja' in request.path }}"
+          >
+            <i class="fas fa-unlock"></i> Aperturar Caja
+          </a>
+          {% else %} 
+            {% if session.rol == 'administrador' or caja_activa_global.usuario_apertura_id|string == session.user_cedula|string %}
+            <a
+              href="{{ url_for('main.vista_caja') }}"
+              class="nav-link {{ 'active' if 'control_caja' in request.path }}"
+            >
+              <i class="fas fa-vault"></i> Control Caja
+            </a>
+            {% endif %} 
+          {% endif %}
 
-        <a
-          href="{{ url_for('main.clientes') }}"
-          class="nav-link {{ 'active' if 'clientes' in request.path }}"
-        >
-          <i class="fas fa-address-book"></i> Clientes
-        </a>
+          <a
+            href="{{ url_for('main.clientes') }}"
+            class="nav-link {{ 'active' if 'clientes' in request.path }}"
+          >
+            <i class="fas fa-address-book"></i> Clientes
+          </a>
 
-        <a
-          href="{{ url_for('main.historial') }}"
-          class="nav-link {{ 'active' if 'historial' in request.path }}"
-        >
-          <i class="fas fa-print"></i> Reimpresión
-        </a>
-      </div>
+          <a
+            href="{{ url_for('main.historial') }}"
+            class="nav-link {{ 'active' if 'historial' in request.path }}"
+          >
+            <i class="fas fa-print"></i> Reimpresión
+          </a>
+        </div>
 
-      {% if session.rol == 'administrador' %}
-      <div class="nav-group">
-        <div class="nav-label">Gestión Pro</div>
-        <a
-          href="{{ url_for('main.inventarios') }}"
-          class="nav-link {{ 'active' if 'inventarios' in request.path }}"
-        >
-          <i class="fas fa-boxes-stacked"></i> Inventario
-        </a>
-        <a
-          href="{{ url_for('main.anular_facturacion') }}"
-          class="nav-link {{ 'active' if 'anular' in request.path }}"
-        >
-          <i class="fas fa-file-circle-xmark"></i> Anular Ventas
-        </a>
-        <a
-          href="{{ url_for('main.reportes') }}"
-          class="nav-link {{ 'active' if 'reportes' in request.path }}"
-        >
-          <i class="fas fa-chart-pie"></i> Reportes
-        </a>
-        <a
-          href="{{ url_for('main.lista_usuarios') }}"
-          class="nav-link {{ 'active' if 'usuarios' in request.path }}"
-        >
-          <i class="fas fa-user-gear"></i> Usuarios
-        </a>
-      </div>
-      {% endif %}
+        {% if session.rol == 'administrador' %}
+        <div class="nav-group">
+          <div class="nav-label">Gestión Pro</div>
+          <a
+            href="{{ url_for('main.inventarios') }}"
+            class="nav-link {{ 'active' if 'inventarios' in request.path }}"
+          >
+            <i class="fas fa-boxes-stacked"></i> Inventario
+          </a>
+          <a
+            href="{{ url_for('main.anular_facturacion') }}"
+            class="nav-link {{ 'active' if 'anular' in request.path }}"
+          >
+            <i class="fas fa-file-circle-xmark"></i> Anular Ventas
+          </a>
+          <a
+            href="{{ url_for('main.reportes') }}"
+            class="nav-link {{ 'active' if 'reportes' in request.path }}"
+          >
+            <i class="fas fa-chart-pie"></i> Reportes
+          </a>
+          <a
+            href="{{ url_for('main.lista_usuarios') }}"
+            class="nav-link {{ 'active' if 'usuarios' in request.path }}"
+          >
+            <i class="fas fa-user-gear"></i> Usuarios
+          </a>
+        </div>
+        {% endif %}
+        
+      </div> <!-- Fin del contenedor scroll -->
     </aside>
 
     <div class="main-content">
