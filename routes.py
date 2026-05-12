@@ -1,17 +1,11 @@
-import io
 import os
-import platform
 import pandas as pd
 from datetime import datetime
 from functools import wraps
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, session, flash, make_response
 from sqlalchemy import func
 from decimal import Decimal, ROUND_HALF_UP
-from flask import send_file
 import threading
-import sib_api_v3_sdk
-import base64
-from sib_api_v3_sdk.rest import ApiException
 
 # Importamos los modelos
 from models import db, Producto, Cliente, Factura, DetalleFactura, Caja, Usuario, Rol, Categoria
@@ -477,9 +471,12 @@ def imprimir_factura(id):
 # ==========================================
 
 def enviar_correo_factura(factura, pdf_binario):
-    """
-    Envía la factura usando la API de Brevo para saltar los bloqueos de Render.
-    """
+    # IMPORTANTE: Importar 'app' aquí adentro para que la reconozca el hilo
+    from app import app 
+    import sib_api_v3_sdk
+    import base64
+    from sib_api_v3_sdk.rest import ApiException
+
     with app.app_context():
         try:
             # 1. Obtener datos del cliente
