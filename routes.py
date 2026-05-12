@@ -9,6 +9,9 @@ from sqlalchemy import func
 from decimal import Decimal, ROUND_HALF_UP
 from flask import send_file
 import threading
+import sib_api_v3_sdk
+import base64
+from sib_api_v3_sdk.rest import ApiException
 
 # Importamos los modelos
 from models import db, Producto, Cliente, Factura, DetalleFactura, Caja, Usuario, Rol, Categoria
@@ -474,55 +477,63 @@ def imprimir_factura(id):
 # ==========================================
 
 def enviar_correo_factura(factura, pdf_binario):
-    from app import app, mail
-    from models import Cliente 
-    from flask_mail import Message
-    import os
-    import smtplib # Para capturar errores específicos
-
+    """
+    Envía la factura usando la API de Brevo para saltar los bloqueos de Render.
+    """
     with app.app_context():
         try:
+            # 1. Obtener datos del cliente
             cliente = Cliente.query.get(factura.cliente_id)
             if not cliente or not cliente.correo:
                 print(f">>> ERROR: Factura {factura.numero_factura} sin correo de destino.")
                 return False
 
-            remitente = app.config.get('MAIL_USERNAME')
-            msg = Message(
-                subject=f"Factura #{factura.numero_factura} - Supermercado Cristo Pobre",
-                recipients=[cliente.correo],
-                body=f"Hola {cliente.nombre}, adjuntamos su comprobante de pago.",
-                sender=remitente
-            )
-
-            msg.attach(
-                filename=f"factura_{factura.numero_factura}.pdf",
-                content_type="application/pdf",
-                data=pdf_binario
-            )
-
-            # Intentamos enviar hasta 2 veces si hay timeout
-            intentos = 0
-            while intentos < 2:
-                try:
-                    print(f">>> Intento {intentos + 1}: Conectando a {app.config['MAIL_SERVER']}:{app.config['MAIL_PORT']}...")
-                    mail.send(msg)
-                    print(f">>> ¡CONFIRMADO POR GOOGLE! Enviado a {cliente.correo}")
-                    return True
-                except (smtplib.SMTPConnectError, smtplib.SMTPConnectTimeoutError, TimeoutError):
-                    intentos += 1
-                    print(f">>> Timeout en intento {intentos}. Reintentando...")
-                    import time
-                    time.sleep(2) # Esperar 2 segundos antes de reintentar
+            # 2. Configuración de la API de Brevo
+            configuration = sib_api_v3_sdk.Configuration()
+            # REEMPLAZA ESTO CON TU CLAVE API V3 REAL
+            configuration.api_key['api-key'] = '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' 
             
-            return False
+            api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
 
+            # 3. Preparar el PDF (Convertir binario a texto Base64)
+            pdf_base64 = base64.b64encode(pdf_binario).decode('utf-8')
+
+            # 4. Crear el objeto del correo
+            # IMPORTANTE: 'sender' debe ser el correo que verificaste en el panel de Brevo
+            remitente_email = "ricardoespinoza03@outlook.com"
+            
+            email_objeto = sib_api_v3_sdk.SendSmtpEmail(
+                to=[{"email": cliente.correo, "name": cliente.nombre}],
+                sender={"email": remitente_email, "name": "Supermercado Cristo Pobre"},
+                subject=f"Factura #{factura.numero_factura} - Supermercado Cristo Pobre",
+                html_content=f"""
+                    <h3>Hola {cliente.nombre},</h3>
+                    <p>Gracias por su compra. Adjunto a este correo encontrará su comprobante de pago.</p>
+                    <p>Atentamente,<br><strong>Supermercado Cristo Pobre</strong></p>
+                """,
+                attachment=[{
+                    "content": pdf_base64,
+                    "name": f"factura_{factura.numero_factura}.pdf"
+                }]
+            )
+
+            # 5. Enviar a través de la API (Puerto 443, no bloqueado por Render)
+            print(f">>> Intentando enviar factura {factura.numero_factura} vía API Brevo...")
+            api_instance.send_transac_email(email_objeto)
+            
+            print(f">>> ¡ÉXITO TOTAL! Factura enviada a {cliente.correo}")
+            return True
+
+        except ApiException as e:
+            print(f"--- ERROR DE API BREVO ---")
+            print(f"Status: {e.status}, Razón: {e.reason}, Cuerpo: {e.body}")
+            return False
         except Exception as e:
             import traceback
-            print("--- ERROR FINAL TRAS REINTENTOS ---")
+            print("--- ERROR INESPERADO ---")
             print(traceback.format_exc())
             return False
-
+        
 # ==========================================
 # --- 7. CONTROL DE CAJA ---
 # ==========================================
