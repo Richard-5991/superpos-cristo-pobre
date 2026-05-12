@@ -23,33 +23,6 @@ app = Flask(__name__)
 app.config.from_object(Config)
 
 # =================================================
-# CONFIGURACIÓN DE CORREO - PRUEBA DIRECTA
-# =================================================
-#app.config['MAIL_SERVER'] = 'sandbox.smtp.mailtrap.io'
-#app.config['MAIL_PORT'] = 2525
-#app.config['MAIL_USE_TLS'] = True
-#app.config['MAIL_USE_SSL'] = False
-
-# COPIA ESTOS DATOS DE TU CUENTA DE MAILTRAP (SIN ESPACIOS)
-#app.config['MAIL_USERNAME'] = 'fd8781a08948cb' 
-#app.config['MAIL_PASSWORD'] = '9a2be262ae845f'
-
-#app.config['MAIL_DEFAULT_SENDER'] = 'facturacion@cristopobre.com'
-
-# Cambia 'smtp.gmail.com' por esta IP (es un servidor de Google)
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 25  # Intentamos el puerto más viejo y desprotegido
-app.config['MAIL_USE_TLS'] = False
-app.config['MAIL_USE_SSL'] = False
-app.config['MAIL_USERNAME'] = 'richiespinoza42@gmail.com' # Ponlo directo para probar
-app.config['MAIL_PASSWORD'] = 'qcrbuavkltgspqkk' # Ponla directo sin espacios
-
-mail = Mail(app)
-
-
-# Inicializamos Mail ANTES de importar las rutas
-mail = Mail(app)
-# =================================================
 
 # IMPORTACIÓN DE RUTAS (Aquí abajo para evitar el error circular)
 from routes import main
