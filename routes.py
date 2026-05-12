@@ -491,8 +491,7 @@ def enviar_correo_factura(factura, pdf_binario):
             # 2. Configuración de la API de Brevo
             configuration = sib_api_v3_sdk.Configuration()
             # REEMPLAZA ESTO CON TU CLAVE API V3 REAL
-            configuration.api_key['api-key'] = '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' 
-            
+            configuration.api_key['api-key'] = os.environ.get('BREVO_API_KEY')
             api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
 
             # 3. Preparar el PDF (Convertir binario a texto Base64)
