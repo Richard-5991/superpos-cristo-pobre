@@ -457,7 +457,7 @@ def imprimir_factura(id):
         # DEVOLVER AL NAVEGADOR (Inmediato)
         response = make_response(pdf)
         response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = f'inline; filename=factura_{factura.numero_factura}.pdf'
+        response.headers['Content-Disposition'] = f'inline; filename=NotaVenta_{factura.numero_factura}.pdf'
         return response
 
     except Exception as e:
@@ -500,8 +500,8 @@ def enviar_correo_factura(factura, pdf_binario):
             
             email_objeto = sib_api_v3_sdk.SendSmtpEmail(
                 to=[{"email": cliente.correo, "name": cliente.nombre}],
-                sender={"email": remitente_email, "name": "Supermercado Cristo Pobre"},
-                subject=f"Nota de Venta #{factura.numero_factura} - Supermercado Cristo Pobre",
+                sender={"email": remitente_email, "name": "Fabrica de Quesos Cristo Pobre"},
+                subject=f"Nota de Venta #{factura.numero_factura} - Fabrica de Quesos Cristo Pobre",
                 html_content=f"""
                     <h3>Hola {cliente.nombre},</h3>
                     <p>Gracias por su compra. Adjunto a este correo encontrará su comprobante de pago.</p>
@@ -509,7 +509,7 @@ def enviar_correo_factura(factura, pdf_binario):
                 """,
                 attachment=[{
                     "content": pdf_base64,
-                    "name": f"factura_{factura.numero_factura}.pdf"
+                    "name": f"Nota_de_Venta_{factura.numero_factura}.pdf"
                 }]
             )
 
